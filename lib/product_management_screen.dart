@@ -120,7 +120,17 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
                         itemCount: _productsList.length,
                         itemBuilder: (context, index) {
                           final product = _productsList[index];
-                          return _buildProductCard(product);
+                          return ProductCard(
+                            product: product,
+                            onSave: (name, price) {
+                              // TODO: Implement API update
+                              debugPrint('Saving $name, $price');
+                            },
+                            onDelete: () {
+                              // TODO: Implement API delete
+                              debugPrint('Deleting ${product.id}');
+                            },
+                          );
                         },
                       ),
           ),
@@ -202,10 +212,47 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
       ),
     );
   }
+}
 
-  Widget _buildProductCard(Product product) {
+class ProductCard extends StatefulWidget {
+  final Product product;
+  final Function(String name, int price) onSave;
+  final VoidCallback onDelete;
+
+  const ProductCard({
+    super.key,
+    required this.product,
+    required this.onSave,
+    required this.onDelete,
+  });
+
+  @override
+  State<ProductCard> createState() => _ProductCardState();
+}
+
+class _ProductCardState extends State<ProductCard> {
+  bool _isEditing = false;
+  late TextEditingController _nameController;
+  late TextEditingController _priceController;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.product.name);
+    _priceController = TextEditingController(text: widget.product.amountSell.toString());
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _priceController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     String getEmoji() {
-      switch (product.category.toUpperCase()) {
+      switch (widget.product.category.toUpperCase()) {
         case 'KOPI':
           return '☕';
         case 'COKELAT':
@@ -258,18 +305,33 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        product.name,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                      if (_isEditing)
+                        Expanded(
+                          child: TextField(
+                            controller: _nameController,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            decoration: const InputDecoration(
+                              isDense: true,
+                              contentPadding: EdgeInsets.symmetric(vertical: 8),
+                            ),
+                          ),
+                        )
+                      else
+                        Text(
+                          widget.product.name,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                      _buildStatusIndicator(product.isActive),
+                      _buildStatusIndicator(widget.product.isActive),
                     ],
                   ),
                   Text(
-                    product.category,
+                    widget.product.category,
                     style: TextStyle(
                       fontSize: 14,
                       color: AppColors.black.withOpacity(0.4),
@@ -279,29 +341,81 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Rp ${product.amountSell}',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.black,
+                      if (_isEditing)
+                        Expanded(
+                          child: Row(
+                            children: [
+                              const Text('Rp ', style: TextStyle(fontWeight: FontWeight.bold)),
+                              Expanded(
+                                child: TextField(
+                                  controller: _priceController,
+                                  keyboardType: TextInputType.number,
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  decoration: const InputDecoration(
+                                    isDense: true,
+                                    contentPadding: EdgeInsets.symmetric(vertical: 8),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        Text(
+                          'Rp ${widget.product.amountSell}',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.black,
+                          ),
                         ),
-                      ),
+                      const SizedBox(width: 8),
                       Row(
                         children: [
-                          IconButton(
-                            icon: const Icon(Icons.edit_outlined, size: 20),
-                            onPressed: () {},
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                          ),
-                          const SizedBox(width: 12),
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline, size: 20, color: Colors.red),
-                            onPressed: () {},
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                          ),
+                          if (_isEditing) ...[
+                            IconButton(
+                              icon: const Icon(Icons.check_rounded, color: Colors.green, size: 22),
+                              onPressed: () {
+                                setState(() => _isEditing = false);
+                                widget.onSave(
+                                  _nameController.text,
+                                  int.tryParse(_priceController.text) ?? widget.product.amountSell,
+                                );
+                              },
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                            const SizedBox(width: 12),
+                            IconButton(
+                              icon: const Icon(Icons.close_rounded, color: Colors.grey, size: 22),
+                              onPressed: () {
+                                setState(() {
+                                  _isEditing = false;
+                                  _nameController.text = widget.product.name;
+                                  _priceController.text = widget.product.amountSell.toString();
+                                });
+                              },
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                          ] else ...[
+                            IconButton(
+                              icon: const Icon(Icons.edit_outlined, size: 20),
+                              onPressed: () => setState(() => _isEditing = true),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                            const SizedBox(width: 12),
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline, size: 20, color: Colors.red),
+                              onPressed: widget.onDelete,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                          ],
                         ],
                       ),
                     ],
