@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'theme.dart';
+import 'product_management_screen.dart';
 
 class AdminScreen extends StatefulWidget {
   const AdminScreen({super.key});
@@ -54,7 +55,7 @@ class _AdminScreenState extends State<AdminScreen> {
         index: _selectedIndex,
         children: [
           _buildDashboardTab(),
-          _buildPlaceholder('Produk'),
+          const ProductManagementScreen(),
           _buildPlaceholder('Rider'),
           _buildPlaceholder('Stock'),
         ],
