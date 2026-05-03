@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'theme.dart';
 import 'models/category.dart';
+import 'models/product.dart';
 import 'dart:convert';
 import 'services/api_service.dart';
 
@@ -16,41 +17,45 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
   bool _isLoadingCategories = true;
   String _selectedCategoryId = 'all';
 
-  final List<Map<String, dynamic>> _products = [
-    {
-      'name': 'Espresso',
-      'category': 'Coffee',
-      'price': 15000,
-      'status': true,
-      'image': '☕',
-    },
-    {
-      'name': 'Cafe Latte',
-      'category': 'Coffee',
-      'price': 25000,
-      'status': true,
-      'image': '🥛',
-    },
-    {
-      'name': 'Matcha Latte',
-      'category': 'Non-Coffee',
-      'price': 28000,
-      'status': false,
-      'image': '🍵',
-    },
-    {
-      'name': 'Croissant',
-      'category': 'Pastry',
-      'price': 22000,
-      'status': true,
-      'image': '🥐',
-    },
-  ];
+  List<Product> _productsList = [];
+  bool _isLoadingProducts = true;
+
 
   @override
   void initState() {
     super.initState();
     _fetchCategories();
+    _fetchProducts();
+  }
+
+  Future<void> _fetchProducts() async {
+    setState(() {
+      _isLoadingProducts = true;
+    });
+
+    try {
+      final response = await ApiService.get('/private/product');
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        if (data['status'] == 'success') {
+          final List<dynamic> productsJson = data['data'];
+          setState(() {
+            _productsList = productsJson.map((json) => Product.fromJson(json)).toList();
+            _isLoadingProducts = false;
+          });
+        }
+      } else {
+        setState(() {
+          _isLoadingProducts = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching products: $e');
+      setState(() {
+        _isLoadingProducts = false;
+      });
+    }
   }
 
   Future<void> _fetchCategories() async {
@@ -99,14 +104,18 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
         children: [
           _buildHeader(),
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.only(left: 24, right: 24, top: 8, bottom: 100),
-              itemCount: _products.length,
-              itemBuilder: (context, index) {
-                final product = _products[index];
-                return _buildProductCard(product);
-              },
-            ),
+            child: _isLoadingProducts
+                ? const Center(child: CircularProgressIndicator())
+                : _productsList.isEmpty
+                    ? const Center(child: Text('Tidak ada produk'))
+                    : ListView.builder(
+                        padding: const EdgeInsets.only(left: 24, right: 24, top: 8, bottom: 100),
+                        itemCount: _productsList.length,
+                        itemBuilder: (context, index) {
+                          final product = _productsList[index];
+                          return _buildProductCard(product);
+                        },
+                      ),
           ),
         ],
       ),
@@ -184,7 +193,22 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
     );
   }
 
-  Widget _buildProductCard(Map<String, dynamic> product) {
+  Widget _buildProductCard(Product product) {
+    String getEmoji() {
+      switch (product.category.toUpperCase()) {
+        case 'KOPI':
+          return '☕';
+        case 'COKELAT':
+          return '🥛';
+        case 'TEH':
+          return '🍵';
+        case 'SNACK':
+          return '🥐';
+        default:
+          return '📦';
+      }
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -211,7 +235,7 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
               ),
               child: Center(
                 child: Text(
-                  product['image'],
+                  getEmoji(),
                   style: const TextStyle(fontSize: 32),
                 ),
               ),
@@ -225,17 +249,17 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        product['name'],
+                        product.name,
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      _buildStatusIndicator(product['status']),
+                      _buildStatusIndicator(product.isActive),
                     ],
                   ),
                   Text(
-                    product['category'],
+                    product.category,
                     style: TextStyle(
                       fontSize: 14,
                       color: AppColors.black.withOpacity(0.4),
@@ -246,7 +270,7 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Rp ${product['price']}',
+                        'Rp ${product.amountSell}',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,

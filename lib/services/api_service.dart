@@ -47,7 +47,7 @@ class ApiService {
       }
 
       final response = await http.get(
-        Uri.parse('$baseUrl/private/introspect'),
+        Uri.parse('$baseUrl/public/auth/introspect'),
         headers: {
           'x-refresh-token': refreshToken,
         },
