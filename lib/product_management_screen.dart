@@ -34,7 +34,7 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
     });
 
     try {
-      String endpoint = '/private/product';
+      String endpoint = '/private/admin/product';
       if (_selectedCategoryId != 'all') {
         // Find the selected category name
         final selectedCategory = _categories.firstWhere((cat) => cat.id == _selectedCategoryId);
@@ -122,13 +122,85 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
                           final product = _productsList[index];
                           return ProductCard(
                             product: product,
-                            onSave: (name, price) {
-                              // TODO: Implement API update
-                              debugPrint('Saving $name, $price');
+                            onSave: (name, price) async {
+                              try {
+                                final response = await ApiService.patch(
+                                  '/private/admin/product/${product.id}',
+                                  {
+                                    'name': name,
+                                    'amount_sell': price,
+                                    'active': product.active,
+                                  },
+                                );
+
+                                if (response.statusCode == 200) {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Produk berhasil diperbarui'),
+                                        backgroundColor: Colors.green,
+                                      ),
+                                    );
+                                  }
+                                  _fetchProducts(); // Refresh the list
+                                } else {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Gagal memperbarui produk (${response.statusCode})'),
+                                        backgroundColor: Colors.redAccent,
+                                      ),
+                                    );
+                                  }
+                                }
+                              } catch (e) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Terjadi kesalahan: $e'),
+                                      backgroundColor: Colors.redAccent,
+                                    ),
+                                  );
+                                }
+                              }
                             },
                             onDelete: () {
                               // TODO: Implement API delete
                               debugPrint('Deleting ${product.id}');
+                            },
+                            onToggleStatus: (isActive) async {
+                              try {
+                                final response = await ApiService.patch(
+                                  '/private/admin/product/${product.id}',
+                                  {
+                                    'name': product.name,
+                                    'amount_sell': product.amountSell,
+                                    'active': isActive ? 1 : 0,
+                                  },
+                                );
+
+                                if (response.statusCode == 200) {
+                                  _fetchProducts(); // Refresh the list
+                                } else {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Gagal mengubah status (${response.statusCode})'),
+                                        backgroundColor: Colors.redAccent,
+                                      ),
+                                    );
+                                  }
+                                }
+                              } catch (e) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Terjadi kesalahan: $e'),
+                                      backgroundColor: Colors.redAccent,
+                                    ),
+                                  );
+                                }
+                              }
                             },
                           );
                         },
@@ -218,12 +290,14 @@ class ProductCard extends StatefulWidget {
   final Product product;
   final Function(String name, int price) onSave;
   final VoidCallback onDelete;
+  final Function(bool isActive) onToggleStatus;
 
   const ProductCard({
     super.key,
     required this.product,
     required this.onSave,
     required this.onDelete,
+    required this.onToggleStatus,
   });
 
   @override
@@ -320,14 +394,31 @@ class _ProductCardState extends State<ProductCard> {
                           ),
                         )
                       else
-                        Text(
-                          widget.product.name,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                        Expanded(
+                          child: Text(
+                            widget.product.name,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                      _buildStatusIndicator(widget.product.isActive),
+                      Row(
+                        children: [
+                          if (!_isEditing)
+                            _buildStatusIndicator(widget.product.isActive),
+                          if (_isEditing)
+                            Transform.scale(
+                              scale: 0.7,
+                              child: Switch(
+                                value: widget.product.isActive,
+                                onChanged: widget.onToggleStatus,
+                                activeColor: Colors.green,
+                              ),
+                            ),
+                        ],
+                      ),
                     ],
                   ),
                   Text(

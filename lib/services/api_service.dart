@@ -18,17 +18,43 @@ class ApiService {
     );
 
     if (response.statusCode == 401) {
-      debugPrint('Access token expired, attempting refresh...');
       final newAccessToken = await _refreshToken();
-      
       if (newAccessToken != null) {
-        debugPrint('Token refreshed successfully, retrying request...');
-        // Retry the request with the new token
         response = await http.get(
           Uri.parse('$baseUrl$endpoint'),
           headers: {
             'Authorization': 'Bearer $newAccessToken',
           },
+        );
+      }
+    }
+
+    return response;
+  }
+
+  static Future<http.Response> patch(String endpoint, Map<String, dynamic> body) async {
+    final prefs = await SharedPreferences.getInstance();
+    String? accessToken = prefs.getString('access_token');
+
+    var response = await http.patch(
+      Uri.parse('$baseUrl$endpoint'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $accessToken',
+      },
+      body: jsonEncode(body),
+    );
+
+    if (response.statusCode == 401) {
+      final newAccessToken = await _refreshToken();
+      if (newAccessToken != null) {
+        response = await http.patch(
+          Uri.parse('$baseUrl$endpoint'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $newAccessToken',
+          },
+          body: jsonEncode(body),
         );
       }
     }
