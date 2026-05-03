@@ -1,16 +1,92 @@
-# mynofuadmin
+# MyNofu Admin Dashboard
 
-A new Flutter project.
+A premium Flutter-based admin application for NOFU Coffee, featuring secure login integration and real-time dashboard analytics.
 
-## Getting Started
+## 🚀 Features
 
-This project is a starting point for a Flutter application.
+- **Secure Authentication**: Integrated with the NOFU Public Admin API.
+- **Dynamic Dashboard**: Real-time stats for sales, orders, products, and customers.
+- **Premium UI**: Modern design with smooth transitions and optimized layouts.
+- **Optimized for Release**: Pre-configured with R8/ProGuard for minimal app size.
 
-A few resources to get you started if this is your first Flutter project:
+---
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## 🛠️ Getting Started
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+### Prerequisites
+
+- [Flutter SDK](https://docs.flutter.dev/get-started/install) (v3.0.0 or higher)
+- [Android Studio](https://developer.android.com/studio) or VS Code
+- Android SDK & Java 17+
+
+### Installation
+
+1. Clone the repository.
+2. Install dependencies:
+   ```bash
+   flutter pub get
+   ```
+
+---
+
+## 💻 How to Run
+
+### Development Mode
+To run the app on a connected device or emulator in debug mode:
+```bash
+flutter run
+```
+
+### Release Mode (Testing)
+To test the performance on a physical device with release optimizations:
+```bash
+flutter run --release
+```
+
+---
+
+## 📦 How to Release (Android)
+
+The project is fully configured for Google Play Store release with signed App Bundles.
+
+### 1. Signing Configuration
+The app uses a signing key located at `android/app/upload-keystore.jks`. The credentials are managed in `android/key.properties`:
+
+- **Key Alias**: `upload`
+- **Keystore/Key Password**: `jagainoke`
+
+> [!IMPORTANT]
+> Keep `android/key.properties` and `android/app/upload-keystore.jks` secure. Do not commit them to public version control.
+
+### 2. Build the App Bundle (AAB)
+To generate the `.aab` file for the Play Store:
+```bash
+flutter build appbundle
+```
+The output will be located at:
+`build/app/outputs/bundle/release/app-release.aab`
+
+### 3. Build the APK (Optional)
+If you need a universal APK for manual distribution:
+```bash
+flutter build apk --release
+```
+The output will be located at:
+`build/app/outputs/flutter-apk/app-release.apk`
+
+---
+
+## 🔧 Maintenance
+
+### Troubleshooting Gradle Errors
+If you encounter "Multiple build operations failed" or cache errors:
+```bash
+cd android
+./gradlew clean
+cd ..
+flutter clean
+flutter pub get
+```
+
+### Updating API Endpoints
+Login API integration can be found in `lib/login_screen.dart`. Ensure the `x-request-id` header is updated if required by the backend.
