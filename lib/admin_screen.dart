@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'theme.dart';
 import 'product_management_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AdminScreen extends StatefulWidget {
   const AdminScreen({super.key});
@@ -44,8 +45,12 @@ class _AdminScreenState extends State<AdminScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.logout_rounded),
-            onPressed: () {
-              Navigator.of(context).pushReplacementNamed('/');
+            onPressed: () async {
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.remove('access_token');
+              if (context.mounted) {
+                Navigator.of(context).pushReplacementNamed('/');
+              }
             },
           ),
           const SizedBox(width: 8),

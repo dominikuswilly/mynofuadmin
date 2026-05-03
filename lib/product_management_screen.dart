@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'theme.dart';
+import 'models/category.dart';
+import 'dart:convert';
+import 'services/api_service.dart';
 
 class ProductManagementScreen extends StatefulWidget {
   const ProductManagementScreen({super.key});
@@ -9,6 +12,10 @@ class ProductManagementScreen extends StatefulWidget {
 }
 
 class _ProductManagementScreenState extends State<ProductManagementScreen> {
+  List<Category> _categories = [];
+  bool _isLoadingCategories = true;
+  String _selectedCategoryId = 'all';
+
   final List<Map<String, dynamic>> _products = [
     {
       'name': 'Espresso',
@@ -39,6 +46,50 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
       'image': '🥐',
     },
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCategories();
+  }
+
+  Future<void> _fetchCategories() async {
+    setState(() {
+      _isLoadingCategories = true;
+    });
+
+    try {
+      final response = await ApiService.get('/private/inventory/categories');
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        if (data['status'] == 'success') {
+          final List<dynamic> categoriesJson = data['data'];
+          setState(() {
+            _categories = categoriesJson.map((json) => Category.fromJson(json)).toList();
+            _isLoadingCategories = false;
+          });
+        }
+      } else if (response.statusCode == 401) {
+        // Handle case where even after refresh it's still 401 (e.g. refresh token also expired)
+        debugPrint('Unauthorized even after refresh attempt');
+        setState(() {
+          _isLoadingCategories = false;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Sesi telah berakhir, silakan login kembali')),
+          );
+          Navigator.of(context).pushReplacementNamed('/');
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching categories: $e');
+      setState(() {
+        _isLoadingCategories = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -98,11 +149,18 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                _buildCategoryChip('Semua', true),
-                _buildCategoryChip('Coffee', false),
-                _buildCategoryChip('Non-Coffee', false),
-                _buildCategoryChip('Pastry', false),
-                _buildCategoryChip('Beans', false),
+                _buildCategoryChip('Semua', 'all'),
+                if (_isLoadingCategories)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                else
+                  ..._categories.map((category) => _buildCategoryChip(category.name, category.id)),
               ],
             ),
           ),
@@ -151,13 +209,18 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
     );
   }
 
-  Widget _buildCategoryChip(String label, bool isSelected) {
+  Widget _buildCategoryChip(String label, String id) {
+    final bool isSelected = _selectedCategoryId == id;
     return Container(
       margin: const EdgeInsets.only(right: 8),
       child: FilterChip(
         label: Text(label),
         selected: isSelected,
-        onSelected: (bool selected) {},
+        onSelected: (bool selected) {
+          setState(() {
+            _selectedCategoryId = id;
+          });
+        },
         backgroundColor: AppColors.grey,
         selectedColor: AppColors.primary,
         labelStyle: TextStyle(

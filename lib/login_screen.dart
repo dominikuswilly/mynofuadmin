@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'theme.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -36,7 +37,7 @@ class _LoginScreenState extends State<LoginScreen> {
         Uri.parse('https://apinofudev.bengkelfajarjaya.com/api/mynofu/public/admin/auth'),
         headers: {
           'Content-Type': 'application/json',
-          'x-request-id': 'aaa',
+          'x-request-id': DateTime.now().millisecondsSinceEpoch.toString(),
         },
         body: jsonEncode({
           'username': username,
@@ -44,40 +45,44 @@ class _LoginScreenState extends State<LoginScreen> {
         }),
       );
 
+      debugPrint('Login Response Status: ${response.statusCode}');
+      debugPrint('Login Response Body: ${response.body}');
+
       if (response.statusCode == 200 || response.statusCode == 201) {
-        // Assuming success means status code 200/201
-        if (mounted) {
-          Navigator.of(context).pushReplacementNamed('/admin');
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        if (data['status'] == 'success' || data.containsKey('access_token')) {
+          // Handle both structured (with 'data') and flat responses
+          final Map<String, dynamic> responseData = data['data'] ?? data;
+          final String? accessToken = responseData['access_token'];
+          final String? refreshToken = responseData['refresh_token'];
+          
+          if (accessToken != null && refreshToken != null) {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString('access_token', accessToken);
+            await prefs.setString('refresh_token', refreshToken);
+            
+            if (mounted) {
+              Navigator.of(context).pushReplacementNamed('/admin');
+            }
+          } else {
+            _showError('Login response missing tokens');
+          }
+        } else {
+          _showError(data['message'] ?? 'Login failed with status: ${data['status']}');
         }
       } else if (response.statusCode == 401) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Invalid username or password. Please try again.'),
-              backgroundColor: Colors.redAccent,
-            ),
-          );
-        }
+        _showError('Username atau password salah');
       } else {
-        if (mounted) {
-          String errorMessage = 'Login failed';
-          try {
-            final data = jsonDecode(response.body);
-            errorMessage = data['message'] ?? errorMessage;
-          } catch (_) {
-            // Body was not JSON
-          }
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(errorMessage)),
-          );
-        }
+        String errorMessage = 'Login gagal (${response.statusCode})';
+        try {
+          final data = jsonDecode(response.body);
+          errorMessage = data['message'] ?? errorMessage;
+        } catch (_) {}
+        _showError(errorMessage);
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('An error occurred: $e')),
-        );
-      }
+      debugPrint('Login error: $e');
+      _showError('Terjadi kesalahan koneksi: $e');
     } finally {
       if (mounted) {
         setState(() {
@@ -85,6 +90,18 @@ class _LoginScreenState extends State<LoginScreen> {
         });
       }
     }
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.redAccent,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
   }
 
   @override
