@@ -34,7 +34,14 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
     });
 
     try {
-      final response = await ApiService.get('/private/product');
+      String endpoint = '/private/product';
+      if (_selectedCategoryId != 'all') {
+        // Find the selected category name
+        final selectedCategory = _categories.firstWhere((cat) => cat.id == _selectedCategoryId);
+        endpoint += '?category=${selectedCategory.name}';
+      }
+
+      final response = await ApiService.get(endpoint);
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = jsonDecode(response.body);
@@ -145,7 +152,7 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                _buildCategoryChip('Semua', 'all'),
+                _buildCategoryChip('SEMUA', 'all'),
                 if (_isLoadingCategories)
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 16),
@@ -156,7 +163,7 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
                     ),
                   )
                 else
-                  ..._categories.map((category) => _buildCategoryChip(category.name, category.id)),
+                  ..._categories.map((category) => _buildCategoryChip(category.name.toUpperCase(), category.id)),
               ],
             ),
           ),
@@ -174,9 +181,12 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
         label: Text(label),
         selected: isSelected,
         onSelected: (bool selected) {
-          setState(() {
-            _selectedCategoryId = id;
-          });
+          if (_selectedCategoryId != id) {
+            setState(() {
+              _selectedCategoryId = id;
+            });
+            _fetchProducts();
+          }
         },
         backgroundColor: AppColors.grey,
         selectedColor: AppColors.primary,
