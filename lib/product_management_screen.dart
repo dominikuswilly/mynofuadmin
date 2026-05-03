@@ -122,14 +122,14 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
                           final product = _productsList[index];
                           return ProductCard(
                             product: product,
-                            onSave: (name, price) async {
+                            onSave: (name, price, active) async {
                               try {
                                 final response = await ApiService.patch(
                                   '/private/admin/product/${product.id}',
                                   {
                                     'name': name,
                                     'amount_sell': price,
-                                    'active': product.active,
+                                    'active': active,
                                   },
                                 );
 
@@ -167,40 +167,6 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
                             onDelete: () {
                               // TODO: Implement API delete
                               debugPrint('Deleting ${product.id}');
-                            },
-                            onToggleStatus: (isActive) async {
-                              try {
-                                final response = await ApiService.patch(
-                                  '/private/admin/product/${product.id}',
-                                  {
-                                    'name': product.name,
-                                    'amount_sell': product.amountSell,
-                                    'active': isActive ? 1 : 0,
-                                  },
-                                );
-
-                                if (response.statusCode == 200) {
-                                  _fetchProducts(); // Refresh the list
-                                } else {
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text('Gagal mengubah status (${response.statusCode})'),
-                                        backgroundColor: Colors.redAccent,
-                                      ),
-                                    );
-                                  }
-                                }
-                              } catch (e) {
-                                if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('Terjadi kesalahan: $e'),
-                                      backgroundColor: Colors.redAccent,
-                                    ),
-                                  );
-                                }
-                              }
                             },
                           );
                         },
@@ -288,16 +254,14 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
 
 class ProductCard extends StatefulWidget {
   final Product product;
-  final Function(String name, int price) onSave;
+  final Function(String name, int price, int active) onSave;
   final VoidCallback onDelete;
-  final Function(bool isActive) onToggleStatus;
 
   const ProductCard({
     super.key,
     required this.product,
     required this.onSave,
     required this.onDelete,
-    required this.onToggleStatus,
   });
 
   @override
@@ -308,12 +272,14 @@ class _ProductCardState extends State<ProductCard> {
   bool _isEditing = false;
   late TextEditingController _nameController;
   late TextEditingController _priceController;
+  late bool _isActive;
 
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.product.name);
     _priceController = TextEditingController(text: widget.product.amountSell.toString());
+    _isActive = widget.product.isActive;
   }
 
   @override
@@ -412,8 +378,12 @@ class _ProductCardState extends State<ProductCard> {
                             Transform.scale(
                               scale: 0.7,
                               child: Switch(
-                                value: widget.product.isActive,
-                                onChanged: widget.onToggleStatus,
+                                value: _isActive,
+                                onChanged: (val) {
+                                  setState(() {
+                                    _isActive = val;
+                                  });
+                                },
                                 activeColor: Colors.green,
                               ),
                             ),
@@ -474,6 +444,7 @@ class _ProductCardState extends State<ProductCard> {
                                 widget.onSave(
                                   _nameController.text,
                                   int.tryParse(_priceController.text) ?? widget.product.amountSell,
+                                  _isActive ? 1 : 0,
                                 );
                               },
                               padding: EdgeInsets.zero,
@@ -487,6 +458,7 @@ class _ProductCardState extends State<ProductCard> {
                                   _isEditing = false;
                                   _nameController.text = widget.product.name;
                                   _priceController.text = widget.product.amountSell.toString();
+                                  _isActive = widget.product.isActive;
                                 });
                               },
                               padding: EdgeInsets.zero,
