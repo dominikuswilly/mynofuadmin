@@ -100,7 +100,7 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
           _buildHeader(),
           Expanded(
             child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+              padding: const EdgeInsets.only(left: 24, right: 24, top: 8, bottom: 100),
               itemCount: _products.length,
               itemBuilder: (context, index) {
                 final product = _products[index];
@@ -122,7 +122,7 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
 
   Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+      padding: const EdgeInsets.all(24),
       decoration: const BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.only(
@@ -132,19 +132,6 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
       ),
       child: Column(
         children: [
-          TextField(
-            decoration: InputDecoration(
-              hintText: 'Cari produk...',
-              prefixIcon: const Icon(Icons.search_rounded),
-              fillColor: AppColors.grey,
-              filled: true,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide.none,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
@@ -164,50 +151,11 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 24),
-          Row(
-            children: [
-              _buildSummaryItem('Semua', '12'),
-              const SizedBox(width: 12),
-              _buildSummaryItem('Aktif', '10'),
-              const SizedBox(width: 12),
-              _buildSummaryItem('Non-aktif', '2'),
-            ],
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildSummaryItem(String label, String count) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: AppColors.grey,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          children: [
-            Text(
-              count,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                color: AppColors.black.withOpacity(0.4),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildCategoryChip(String label, String id) {
     final bool isSelected = _selectedCategoryId == id;
