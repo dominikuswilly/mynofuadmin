@@ -9,10 +9,10 @@ class ProductManagementScreen extends StatefulWidget {
   const ProductManagementScreen({super.key});
 
   @override
-  State<ProductManagementScreen> createState() => _ProductManagementScreenState();
+  State<ProductManagementScreen> createState() => ProductManagementScreenState();
 }
 
-class _ProductManagementScreenState extends State<ProductManagementScreen> {
+class ProductManagementScreenState extends State<ProductManagementScreen> {
   List<Category> _categories = [];
   bool _isLoadingCategories = true;
   String _selectedCategoryId = 'all';
@@ -119,90 +119,85 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.grey,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(),
-            Expanded(
-              child: _isLoadingProducts
-                  ? const Center(child: CircularProgressIndicator())
-                  : (_productsList.isEmpty && !_showAddSection)
-                      ? const Center(child: Text('Tidak ada produk'))
-                      : ListView.builder(
-                          padding: const EdgeInsets.only(left: 24, right: 24, top: 8, bottom: 100),
-                          itemCount: _productsList.length + (_showAddSection ? 1 : 0),
-                          itemBuilder: (context, index) {
-                            if (_showAddSection && index == 0) {
-                              return _buildAddProductSection();
-                            }
-                            
-                            final productIndex = _showAddSection ? index - 1 : index;
-                            final product = _productsList[productIndex];
-                            
-                            return ProductCard(
-                              product: product,
-                              onSave: (name, price, active) async {
-                                try {
-                                  final response = await ApiService.patch(
-                                    '/private/admin/product/${product.id}',
-                                    {
-                                      'name': name,
-                                      'amount_sell': price,
-                                      'active': active,
-                                    },
-                                  );
+    return Column(
+      children: [
+        _buildHeader(),
+        Expanded(
+          child: _isLoadingProducts
+              ? const Center(child: CircularProgressIndicator())
+              : (_productsList.isEmpty && !_showAddSection)
+                  ? const Center(child: Text('Tidak ada produk'))
+                  : ListView.builder(
+                      padding: const EdgeInsets.only(left: 24, right: 24, top: 8, bottom: 100),
+                      itemCount: _productsList.length + (_showAddSection ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (_showAddSection && index == 0) {
+                          return _buildAddProductSection();
+                        }
+                        
+                        final productIndex = _showAddSection ? index - 1 : index;
+                        final product = _productsList[productIndex];
+                        
+                        return ProductCard(
+                          product: product,
+                          onSave: (name, price, active) async {
+                            try {
+                              final response = await ApiService.patch(
+                                '/private/admin/product/${product.id}',
+                                {
+                                  'name': name,
+                                  'amount_sell': price,
+                                  'active': active,
+                                },
+                              );
 
-                                  if (response.statusCode == 200) {
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('Produk berhasil diperbarui'),
-                                          backgroundColor: Colors.green,
-                                        ),
-                                      );
-                                    }
-                                    _fetchProducts(); // Refresh the list
-                                  } else {
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text('Gagal memperbarui produk (${response.statusCode})'),
-                                          backgroundColor: Colors.redAccent,
-                                        ),
-                                      );
-                                    }
-                                  }
-                                } catch (e) {
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text('Terjadi kesalahan: $e'),
-                                        backgroundColor: Colors.redAccent,
-                                      ),
-                                    );
-                                  }
+                              if (response.statusCode == 200) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Produk berhasil diperbarui'),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
                                 }
-                              },
-                            );
+                                _fetchProducts(); // Refresh the list
+                              } else {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Gagal memperbarui produk (${response.statusCode})'),
+                                      backgroundColor: Colors.redAccent,
+                                    ),
+                                  );
+                                }
+                              }
+                            } catch (e) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Terjadi kesalahan: $e'),
+                                    backgroundColor: Colors.redAccent,
+                                  ),
+                                );
+                              }
+                            }
                           },
-                        ),
-            ),
-          ],
+                        );
+                      },
+                    ),
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          setState(() {
-            _showAddSection = !_showAddSection;
-          });
-        },
-        backgroundColor: AppColors.black,
-        child: Icon(_showAddSection ? Icons.close : Icons.add, color: AppColors.primary),
-      ),
+      ],
     );
   }
+
+  // Add a public method to toggle add section if needed from parent
+  void toggleAddSection() {
+    setState(() {
+      _showAddSection = !_showAddSection;
+    });
+  }
+
+  bool get isAddingProduct => _showAddSection;
 
   Widget _buildAddProductSection() {
     return Container(

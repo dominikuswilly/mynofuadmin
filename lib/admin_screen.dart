@@ -12,6 +12,7 @@ class AdminScreen extends StatefulWidget {
 
 class _AdminScreenState extends State<AdminScreen> {
   int _selectedIndex = 0;
+  final GlobalKey<ProductManagementScreenState> _productKey = GlobalKey<ProductManagementScreenState>();
 
   final List<String> _titles = [
     'Beranda',
@@ -60,7 +61,7 @@ class _AdminScreenState extends State<AdminScreen> {
         index: _selectedIndex,
         children: [
           _buildDashboardTab(),
-          const ProductManagementScreen(),
+          ProductManagementScreen(key: _productKey),
           _buildPlaceholder('Rider'),
           _buildPlaceholder('Stock'),
         ],
@@ -110,6 +111,19 @@ class _AdminScreenState extends State<AdminScreen> {
           ],
         ),
       ),
+      floatingActionButton: _selectedIndex == 1
+          ? FloatingActionButton(
+              onPressed: () {
+                _productKey.currentState?.toggleAddSection();
+                setState(() {}); // Refresh to update FAB icon
+              },
+              backgroundColor: AppColors.black,
+              child: Icon(
+                (_productKey.currentState?.isAddingProduct ?? false) ? Icons.close : Icons.add,
+                color: AppColors.primary,
+              ),
+            )
+          : null,
     );
   }
 
@@ -196,9 +210,9 @@ class _AdminScreenState extends State<AdminScreen> {
       crossAxisCount: 2,
       crossAxisSpacing: 16,
       mainAxisSpacing: 16,
-      childAspectRatio: 1.3,
+      childAspectRatio: 1.0, // Changed from 1.1 to 1.0 to ensure no overflow
       children: [
-        _buildStatCard('Total Penjualan', 'Rp 1.240.000', Icons.monetization_on, Colors.green),
+        _buildStatCard('Total Penjualan', 'Rp 3.240.000', Icons.monetization_on, Colors.green),
         _buildStatCard('Pesanan', '42', Icons.shopping_basket, Colors.blue),
         _buildStatCard('Produk', '12', Icons.coffee, Colors.orange),
         _buildStatCard('Pelanggan', '85', Icons.people, Colors.purple),
@@ -208,7 +222,7 @@ class _AdminScreenState extends State<AdminScreen> {
 
   Widget _buildStatCard(String title, String value, IconData icon, Color color) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16), // Reduced from 20 for more space
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
@@ -222,7 +236,6 @@ class _AdminScreenState extends State<AdminScreen> {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Container(
             padding: const EdgeInsets.all(8),
@@ -232,26 +245,35 @@ class _AdminScreenState extends State<AdminScreen> {
             ),
             child: Icon(icon, color: color, size: 24),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: -0.5,
+          const SizedBox(height: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    value,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
                 ),
-              ),
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.black.withOpacity(0.4),
-                  fontWeight: FontWeight.w500,
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.black.withOpacity(0.4),
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
