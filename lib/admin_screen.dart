@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'theme.dart';
 import 'product_management_screen.dart';
+import 'rider_management_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AdminScreen extends StatefulWidget {
@@ -13,6 +14,7 @@ class AdminScreen extends StatefulWidget {
 class _AdminScreenState extends State<AdminScreen> {
   int _selectedIndex = 0;
   final GlobalKey<ProductManagementScreenState> _productKey = GlobalKey<ProductManagementScreenState>();
+  final GlobalKey<RiderManagementScreenState> _riderKey = GlobalKey<RiderManagementScreenState>();
 
   final List<String> _titles = [
     'Beranda',
@@ -62,7 +64,7 @@ class _AdminScreenState extends State<AdminScreen> {
         children: [
           _buildDashboardTab(),
           ProductManagementScreen(key: _productKey),
-          _buildPlaceholder('Rider'),
+          RiderManagementScreen(key: _riderKey),
           _buildPlaceholder('Stock'),
         ],
       ),
@@ -111,20 +113,33 @@ class _AdminScreenState extends State<AdminScreen> {
           ],
         ),
       ),
-      floatingActionButton: _selectedIndex == 1
+      floatingActionButton: _selectedIndex == 1 || _selectedIndex == 2
           ? FloatingActionButton(
               onPressed: () {
-                _productKey.currentState?.toggleAddSection();
+                if (_selectedIndex == 1) {
+                  _productKey.currentState?.toggleAddSection();
+                } else if (_selectedIndex == 2) {
+                  _riderKey.currentState?.toggleAddSection();
+                }
                 setState(() {}); // Refresh to update FAB icon
               },
               backgroundColor: AppColors.black,
               child: Icon(
-                (_productKey.currentState?.isAddingProduct ?? false) ? Icons.close : Icons.add,
+                _getFabIcon(),
                 color: AppColors.primary,
               ),
             )
           : null,
     );
+  }
+
+  IconData _getFabIcon() {
+    if (_selectedIndex == 1) {
+      return (_productKey.currentState?.isAddingProduct ?? false) ? Icons.close : Icons.add;
+    } else if (_selectedIndex == 2) {
+      return (_riderKey.currentState?.isAddingRider ?? false) ? Icons.close : Icons.add;
+    }
+    return Icons.add;
   }
 
   Widget _buildPlaceholder(String name) {
