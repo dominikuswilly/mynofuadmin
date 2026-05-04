@@ -55,29 +55,13 @@ class RiderManagementScreenState extends State<RiderManagementScreen> {
         setState(() {
           _isLoadingRiders = false;
         });
-        // Fallback to mock data if API fails (for initiation purposes)
-        if (_ridersList.isEmpty) {
-          _loadMockRiders();
-        }
       }
     } catch (e) {
       debugPrint('Error fetching riders: $e');
       setState(() {
         _isLoadingRiders = false;
       });
-      if (_ridersList.isEmpty) {
-        _loadMockRiders();
-      }
     }
-  }
-
-  void _loadMockRiders() {
-    setState(() {
-      _ridersList = [
-        Rider(id: '1', name: 'Ahmad Rider', phoneNumber: '08123456789', isActive: true),
-        Rider(id: '2', name: 'Budi Delivery', phoneNumber: '08987654321', isActive: true),
-      ];
-    });
   }
 
   void toggleAddSection() {
@@ -109,8 +93,8 @@ class RiderManagementScreenState extends State<RiderManagementScreen> {
     try {
       final response = await ApiService.post('/private/admin/rider', {
         'name': name,
-        'phone_number': phone,
-        'is_active': true,
+        'whatsapp_number': '+62$phone',
+        'active': 1,
       });
 
       if (response.statusCode == 200) {
@@ -350,7 +334,7 @@ class RiderCard extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    rider.phoneNumber,
+                    rider.whatsappNumber,
                     style: TextStyle(
                       fontSize: 14,
                       color: AppColors.black.withOpacity(0.4),

@@ -1,22 +1,28 @@
 class Rider {
   final String id;
   final String name;
-  final String phoneNumber;
+  final String username;
+  final String createdAt;
+  final String whatsappNumber;
   final bool isActive;
 
   Rider({
     required this.id,
     required this.name,
-    required this.phoneNumber,
+    required this.username,
+    required this.createdAt,
+    required this.whatsappNumber,
     required this.isActive,
   });
 
   factory Rider.fromJson(Map<String, dynamic> json) {
     return Rider(
-      id: json['id'] as String,
+      id: json['id'].toString(),
       name: json['name'] as String,
-      phoneNumber: json['phone_number'] as String,
-      isActive: json['is_active'] as bool,
+      username: json['username'] as String,
+      createdAt: json['created_at'] as String,
+      whatsappNumber: json['whatsapp_number'] as String,
+      isActive: json['active'] == 1,
     );
   }
 }
