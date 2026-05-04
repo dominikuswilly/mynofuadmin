@@ -164,10 +164,6 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
                                 }
                               }
                             },
-                            onDelete: () {
-                              // TODO: Implement API delete
-                              debugPrint('Deleting ${product.id}');
-                            },
                           );
                         },
                       ),
@@ -255,13 +251,12 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
 class ProductCard extends StatefulWidget {
   final Product product;
   final Function(String name, int price, int active) onSave;
-  final VoidCallback onDelete;
+
 
   const ProductCard({
     super.key,
     required this.product,
     required this.onSave,
-    required this.onDelete,
   });
 
   @override
@@ -468,13 +463,6 @@ class _ProductCardState extends State<ProductCard> {
                             IconButton(
                               icon: const Icon(Icons.edit_outlined, size: 20),
                               onPressed: () => setState(() => _isEditing = true),
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                            ),
-                            const SizedBox(width: 12),
-                            IconButton(
-                              icon: const Icon(Icons.delete_outline, size: 20, color: Colors.red),
-                              onPressed: widget.onDelete,
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(),
                             ),
