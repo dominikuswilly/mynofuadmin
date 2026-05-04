@@ -20,12 +20,26 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
   List<Product> _productsList = [];
   bool _isLoadingProducts = true;
 
+  // New product form state
+  final TextEditingController _newNameController = TextEditingController();
+  final TextEditingController _newPriceController = TextEditingController();
+  String? _selectedNewCategory;
+  bool _showAddSection = false;
+  bool _isSavingProduct = false;
+
 
   @override
   void initState() {
     super.initState();
     _fetchCategories();
     _fetchProducts();
+  }
+
+  @override
+  void dispose() {
+    _newNameController.dispose();
+    _newPriceController.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchProducts() async {
@@ -107,77 +121,286 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.grey,
-      body: Column(
-        children: [
-          _buildHeader(),
-          Expanded(
-            child: _isLoadingProducts
-                ? const Center(child: CircularProgressIndicator())
-                : _productsList.isEmpty
-                    ? const Center(child: Text('Tidak ada produk'))
-                    : ListView.builder(
-                        padding: const EdgeInsets.only(left: 24, right: 24, top: 8, bottom: 100),
-                        itemCount: _productsList.length,
-                        itemBuilder: (context, index) {
-                          final product = _productsList[index];
-                          return ProductCard(
-                            product: product,
-                            onSave: (name, price, active) async {
-                              try {
-                                final response = await ApiService.patch(
-                                  '/private/admin/product/${product.id}',
-                                  {
-                                    'name': name,
-                                    'amount_sell': price,
-                                    'active': active,
-                                  },
-                                );
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildHeader(),
+            Expanded(
+              child: _isLoadingProducts
+                  ? const Center(child: CircularProgressIndicator())
+                  : (_productsList.isEmpty && !_showAddSection)
+                      ? const Center(child: Text('Tidak ada produk'))
+                      : ListView.builder(
+                          padding: const EdgeInsets.only(left: 24, right: 24, top: 8, bottom: 100),
+                          itemCount: _productsList.length + (_showAddSection ? 1 : 0),
+                          itemBuilder: (context, index) {
+                            if (_showAddSection && index == 0) {
+                              return _buildAddProductSection();
+                            }
+                            
+                            final productIndex = _showAddSection ? index - 1 : index;
+                            final product = _productsList[productIndex];
+                            
+                            return ProductCard(
+                              product: product,
+                              onSave: (name, price, active) async {
+                                try {
+                                  final response = await ApiService.patch(
+                                    '/private/admin/product/${product.id}',
+                                    {
+                                      'name': name,
+                                      'amount_sell': price,
+                                      'active': active,
+                                    },
+                                  );
 
-                                if (response.statusCode == 200) {
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Produk berhasil diperbarui'),
-                                        backgroundColor: Colors.green,
-                                      ),
-                                    );
+                                  if (response.statusCode == 200) {
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Produk berhasil diperbarui'),
+                                          backgroundColor: Colors.green,
+                                        ),
+                                      );
+                                    }
+                                    _fetchProducts(); // Refresh the list
+                                  } else {
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Gagal memperbarui produk (${response.statusCode})'),
+                                          backgroundColor: Colors.redAccent,
+                                        ),
+                                      );
+                                    }
                                   }
-                                  _fetchProducts(); // Refresh the list
-                                } else {
+                                } catch (e) {
                                   if (mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
-                                        content: Text('Gagal memperbarui produk (${response.statusCode})'),
+                                        content: Text('Terjadi kesalahan: $e'),
                                         backgroundColor: Colors.redAccent,
                                       ),
                                     );
                                   }
                                 }
-                              } catch (e) {
-                                if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('Terjadi kesalahan: $e'),
-                                      backgroundColor: Colors.redAccent,
-                                    ),
-                                  );
-                                }
-                              }
-                            },
-                          );
-                        },
-                      ),
-          ),
-        ],
+                              },
+                            );
+                          },
+                        ),
+            ),
+          ],
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // TODO: Navigate to add product screen
+          setState(() {
+            _showAddSection = !_showAddSection;
+          });
         },
         backgroundColor: AppColors.black,
-        child: const Icon(Icons.add, color: AppColors.primary),
+        child: Icon(_showAddSection ? Icons.close : Icons.add, color: AppColors.primary),
       ),
     );
+  }
+
+  Widget _buildAddProductSection() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Tambah Produk Baru',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _newNameController,
+            decoration: const InputDecoration(
+              labelText: 'Nama Produk',
+              hintText: 'Masukkan nama produk',
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: DropdownButtonFormField<String>(
+                  isExpanded: true,
+                  value: _selectedNewCategory,
+                  decoration: const InputDecoration(
+                    labelText: 'Kategori',
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 18),
+                  ),
+                  items: _categories.map((Category category) {
+                    return DropdownMenuItem<String>(
+                      value: category.name,
+                      child: Text(
+                        category.name,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (String? newValue) {
+                    setState(() {
+                      _selectedNewCategory = newValue;
+                    });
+                  },
+                  hint: const Text('Pilih'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 3,
+                child: TextField(
+                  controller: _newPriceController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Harga Jual',
+                    hintText: '0',
+                    prefixText: 'Rp ',
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 18),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _isSavingProduct ? null : _addProduct,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.black,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              child: _isSavingProduct
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.primary,
+                      ),
+                    )
+                  : const Text(
+                      'Simpan Produk',
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _addProduct() async {
+    final name = _newNameController.text.trim();
+    final priceStr = _newPriceController.text.trim();
+    final category = _selectedNewCategory;
+
+    if (name.isEmpty || priceStr.isEmpty || category == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Silakan lengkapi semua data produk'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    final price = int.tryParse(priceStr);
+    if (price == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Harga harus berupa angka'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isSavingProduct = true;
+    });
+
+    try {
+      final response = await ApiService.post('/private/admin/product', {
+        'name': name,
+        'category': category,
+        'amount_sell': price,
+      });
+
+      if (response.statusCode == 200) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Produk berhasil ditambahkan'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          
+          // Clear form
+          _newNameController.clear();
+          _newPriceController.clear();
+          setState(() {
+            _selectedNewCategory = null;
+            _showAddSection = false; // Optionally hide the section
+            _isSavingProduct = false;
+          });
+          
+          // Auto reload
+          _fetchProducts();
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Gagal menambahkan produk (${response.statusCode})'),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+          setState(() {
+            _isSavingProduct = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Terjadi kesalahan: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        setState(() {
+          _isSavingProduct = false;
+        });
+      }
+    }
   }
 
   Widget _buildHeader() {

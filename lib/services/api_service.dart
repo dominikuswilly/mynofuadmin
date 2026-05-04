@@ -62,6 +62,36 @@ class ApiService {
     return response;
   }
 
+  static Future<http.Response> post(String endpoint, Map<String, dynamic> body) async {
+    final prefs = await SharedPreferences.getInstance();
+    String? accessToken = prefs.getString('access_token');
+
+    var response = await http.post(
+      Uri.parse('$baseUrl$endpoint'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $accessToken',
+      },
+      body: jsonEncode(body),
+    );
+
+    if (response.statusCode == 401) {
+      final newAccessToken = await _refreshToken();
+      if (newAccessToken != null) {
+        response = await http.post(
+          Uri.parse('$baseUrl$endpoint'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $newAccessToken',
+          },
+          body: jsonEncode(body),
+        );
+      }
+    }
+
+    return response;
+  }
+
   static Future<String?> _refreshToken() async {
     try {
       final prefs = await SharedPreferences.getInstance();
