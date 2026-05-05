@@ -43,14 +43,11 @@ class RiderManagementScreenState extends State<RiderManagementScreen> {
       final response = await ApiService.get('/private/admin/rider');
 
       if (response.statusCode == 200) {
-        final Map<String, dynamic> data = jsonDecode(response.body);
-        if (data['status'] == 'success') {
-          final List<dynamic> ridersJson = data['data'];
-          setState(() {
-            _ridersList = ridersJson.map((json) => Rider.fromJson(json)).toList();
-            _isLoadingRiders = false;
-          });
-        }
+        final List<dynamic> ridersJson = jsonDecode(response.body);
+        setState(() {
+          _ridersList = ridersJson.map((json) => Rider.fromJson(json)).toList();
+          _isLoadingRiders = false;
+        });
       } else {
         setState(() {
           _isLoadingRiders = false;
