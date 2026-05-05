@@ -17,9 +17,15 @@ class RiderManagementScreenState extends State<RiderManagementScreen> {
 
   // New rider form state
   final TextEditingController _newNameController = TextEditingController();
+  final TextEditingController _newUsernameController = TextEditingController();
   final TextEditingController _newPhoneController = TextEditingController();
   bool _showAddSection = false;
   bool _isSavingRider = false;
+
+  // Validation state
+  String? _nameError;
+  String? _usernameError;
+  String? _phoneError;
 
   @override
   void initState() {
@@ -30,6 +36,7 @@ class RiderManagementScreenState extends State<RiderManagementScreen> {
   @override
   void dispose() {
     _newNameController.dispose();
+    _newUsernameController.dispose();
     _newPhoneController.dispose();
     super.dispose();
   }
@@ -71,15 +78,16 @@ class RiderManagementScreenState extends State<RiderManagementScreen> {
 
   Future<void> _addRider() async {
     final name = _newNameController.text.trim();
+    final username = _newUsernameController.text.trim();
     final phone = _newPhoneController.text.trim();
 
-    if (name.isEmpty || phone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Silakan lengkapi semua data rider'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+    setState(() {
+      _nameError = name.isEmpty ? 'Nama lengkap tidak boleh kosong' : null;
+      _usernameError = username.isEmpty ? 'Username tidak boleh kosong' : null;
+      _phoneError = phone.isEmpty ? 'Nomor WhatsApp tidak boleh kosong' : null;
+    });
+
+    if (_nameError != null || _usernameError != null || _phoneError != null) {
       return;
     }
 
@@ -88,13 +96,19 @@ class RiderManagementScreenState extends State<RiderManagementScreen> {
     });
 
     try {
+      // Format phone: remove leading '0' if user typed it, as prefix +62 is already handled
+      String formattedPhone = phone;
+      if (formattedPhone.startsWith('0')) {
+        formattedPhone = formattedPhone.substring(1);
+      }
+      
       final response = await ApiService.post('/private/admin/rider', {
         'name': name,
-        'whatsapp_number': '+62$phone',
-        'active': 1,
+        'username': username,
+        'whatsapp_number': '+62$formattedPhone',
       });
 
-      if (response.statusCode == 200) {
+      if (response.statusCode >= 200 && response.statusCode < 300) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -104,6 +118,7 @@ class RiderManagementScreenState extends State<RiderManagementScreen> {
           );
           
           _newNameController.clear();
+          _newUsernameController.clear();
           _newPhoneController.clear();
           setState(() {
             _showAddSection = false;
@@ -229,20 +244,40 @@ class RiderManagementScreenState extends State<RiderManagementScreen> {
           const SizedBox(height: 16),
           TextField(
             controller: _newNameController,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Nama Lengkap',
               hintText: 'Masukkan nama rider',
+              errorText: _nameError,
             ),
+            onChanged: (_) {
+              if (_nameError != null) setState(() => _nameError = null);
+            },
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _newUsernameController,
+            decoration: InputDecoration(
+              labelText: 'Username',
+              hintText: 'Masukkan username rider',
+              errorText: _usernameError,
+            ),
+            onChanged: (_) {
+              if (_usernameError != null) setState(() => _usernameError = null);
+            },
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _newPhoneController,
             keyboardType: TextInputType.phone,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Nomor WhatsApp',
               hintText: '08...',
               prefixText: '+62 ',
+              errorText: _phoneError,
             ),
+            onChanged: (_) {
+              if (_phoneError != null) setState(() => _phoneError = null);
+            },
           ),
           const SizedBox(height: 20),
           SizedBox(
