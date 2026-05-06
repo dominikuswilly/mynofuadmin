@@ -3,6 +3,7 @@ import 'theme.dart';
 import 'models/rider.dart';
 import 'dart:convert';
 import 'services/api_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class RiderManagementScreen extends StatefulWidget {
   const RiderManagementScreen({super.key});
@@ -161,12 +162,17 @@ class RiderManagementScreenState extends State<RiderManagementScreen> {
       children: [
         _buildHeader(),
         Expanded(
-          child: _isLoadingRiders && _ridersList.isEmpty
-              ? const Center(child: CircularProgressIndicator())
-              : ListView.builder(
-                  padding: const EdgeInsets.only(left: 24, right: 24, top: 8, bottom: 100),
-                  itemCount: _ridersList.length + (_showAddSection ? 1 : 0),
-                  itemBuilder: (context, index) {
+          child: RefreshIndicator(
+            onRefresh: _fetchRiders,
+            color: AppColors.primary,
+            backgroundColor: AppColors.white,
+            child: _isLoadingRiders && _ridersList.isEmpty
+                ? const Center(child: CircularProgressIndicator())
+                : ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.only(left: 24, right: 24, top: 8, bottom: 100),
+                    itemCount: _ridersList.length + (_showAddSection ? 1 : 0),
+                    itemBuilder: (context, index) {
                     if (_showAddSection && index == 0) {
                       return _buildAddRiderSection();
                     }
@@ -176,15 +182,11 @@ class RiderManagementScreenState extends State<RiderManagementScreen> {
                     
                     return RiderCard(
                       rider: rider,
-                      onToggleStatus: (active) async {
-                        // TODO: Implement API toggle status
-                        setState(() {
-                          // Simple local update for demo
-                        });
-                      },
+                      onRefresh: _fetchRiders,
                     );
                   },
                 ),
+          ),
         ),
       ],
     );
@@ -315,15 +317,101 @@ class RiderManagementScreenState extends State<RiderManagementScreen> {
   }
 }
 
-class RiderCard extends StatelessWidget {
+class RiderCard extends StatefulWidget {
   final Rider rider;
-  final Function(bool) onToggleStatus;
+  final VoidCallback onRefresh;
 
   const RiderCard({
     super.key,
     required this.rider,
-    required this.onToggleStatus,
+    required this.onRefresh,
   });
+
+  @override
+  State<RiderCard> createState() => _RiderCardState();
+}
+
+class _RiderCardState extends State<RiderCard> {
+  bool _isToggled = false;
+  late bool _tempActive;
+  bool _isUpdating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _tempActive = widget.rider.isActive;
+  }
+
+  @override
+  void didUpdateWidget(RiderCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.rider.isActive != widget.rider.isActive && !_isToggled) {
+      _tempActive = widget.rider.isActive;
+    }
+  }
+
+  Future<void> _updateStatus() async {
+    setState(() {
+      _isUpdating = true;
+    });
+
+    try {
+      final response = await ApiService.patch(
+        '/private/admin/rider/${widget.rider.id}',
+        {
+          'status': _tempActive ? 'active' : 'inactive',
+        },
+      );
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        if (mounted) {
+          setState(() {
+            _isToggled = false;
+            _isUpdating = false;
+          });
+          widget.onRefresh();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Status berhasil diperbarui')),
+          );
+        }
+      } else {
+        throw 'Failed to update status';
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isUpdating = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal memperbarui status: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _launchWhatsApp(String phone) async {
+    final cleanPhone = phone.replaceAll(RegExp(r'[^\d]'), '');
+    final url = Uri.parse("https://wa.me/$cleanPhone");
+    try {
+      if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+        throw 'Could not launch $url';
+      }
+    } catch (e) {
+      debugPrint('Error launching WhatsApp: $e');
+    }
+  }
+
+  Future<void> _launchPhone(String phone) async {
+    final cleanPhone = phone.replaceAll(RegExp(r'[^\d]'), '');
+    final url = Uri.parse("tel:$cleanPhone");
+    try {
+      if (!await launchUrl(url)) {
+        throw 'Could not launch $url';
+      }
+    } catch (e) {
+      debugPrint('Error launching Phone: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -359,26 +447,129 @@ class RiderCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    rider.name,
+                    widget.rider.name,
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
+                  const SizedBox(height: 2),
                   Text(
-                    rider.whatsappNumber,
+                    '@${widget.rider.username}',
                     style: TextStyle(
-                      fontSize: 14,
-                      color: AppColors.black.withOpacity(0.4),
+                      fontSize: 13,
+                      color: AppColors.black.withOpacity(0.6),
+                      fontWeight: FontWeight.w500,
                     ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      _ActionButton(
+                        icon: Icons.message_rounded,
+                        label: 'WA',
+                        color: const Color(0xFF25D366),
+                        onTap: () => _launchWhatsApp(widget.rider.whatsappNumber),
+                      ),
+                      const SizedBox(width: 8),
+                      _ActionButton(
+                        icon: Icons.phone_forwarded_rounded,
+                        label: 'Panggil',
+                        color: const Color(0xFF34B7F1),
+                        onTap: () => _launchPhone(widget.rider.whatsappNumber),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
-            Switch(
-              value: rider.isActive,
-              onChanged: onToggleStatus,
-              activeColor: Colors.green,
+            if (_isToggled)
+              Column(
+                children: [
+                  IconButton(
+                    icon: _isUpdating 
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.check_circle, color: Colors.green),
+                    onPressed: _isUpdating ? null : _updateStatus,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.cancel, color: Colors.red),
+                    onPressed: _isUpdating ? null : () {
+                      setState(() {
+                        _isToggled = false;
+                        _tempActive = widget.rider.isActive;
+                      });
+                    },
+                  ),
+                ],
+              )
+            else
+              Column(
+                children: [
+                  Switch(
+                    value: _tempActive,
+                    onChanged: (val) {
+                      setState(() {
+                        _isToggled = true;
+                        _tempActive = val;
+                      });
+                    },
+                    activeColor: Colors.green,
+                  ),
+                  Text(
+                    _tempActive ? 'Aktif' : 'Non-aktif',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: _tempActive ? Colors.green : Colors.grey,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _ActionButton({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withOpacity(0.2)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                color: color,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ],
         ),
