@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'theme.dart';
 import 'product_management_screen.dart';
 import 'rider_management_screen.dart';
+import 'stock_management_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AdminScreen extends StatefulWidget {
@@ -15,6 +16,7 @@ class _AdminScreenState extends State<AdminScreen> {
   int _selectedIndex = 0;
   final GlobalKey<ProductManagementScreenState> _productKey = GlobalKey<ProductManagementScreenState>();
   final GlobalKey<RiderManagementScreenState> _riderKey = GlobalKey<RiderManagementScreenState>();
+  final GlobalKey<StockManagementScreenState> _stockKey = GlobalKey<StockManagementScreenState>();
 
   final List<String> _titles = [
     'Beranda',
@@ -65,7 +67,7 @@ class _AdminScreenState extends State<AdminScreen> {
           _buildDashboardTab(),
           ProductManagementScreen(key: _productKey),
           RiderManagementScreen(key: _riderKey),
-          _buildPlaceholder('Stock'),
+          StockManagementScreen(key: _stockKey),
         ],
       ),
       bottomNavigationBar: Container(
