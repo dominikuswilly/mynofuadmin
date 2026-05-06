@@ -70,18 +70,19 @@ class RiderManagementScreenState extends State<RiderManagementScreen> {
   }
 
   void toggleAddSection() {
-    setState(() {
-      _showAddSection = !_showAddSection;
-    });
+    _showAddRiderModal();
   }
 
   bool get isAddingRider => _showAddSection;
 
-  Future<void> _addRider() async {
+  Future<void> _addRider(BuildContext modalContext) async {
     final name = _newNameController.text.trim();
     final username = _newUsernameController.text.trim();
     final phone = _newPhoneController.text.trim();
 
+    // Use modalContext's State if we were using StatefulBuilder, 
+    // but since we're using parent state, we just need to ensure 
+    // we call setState on the parent.
     setState(() {
       _nameError = name.isEmpty ? 'Nama lengkap tidak boleh kosong' : null;
       _usernameError = username.isEmpty ? 'Username tidak boleh kosong' : null;
@@ -89,6 +90,8 @@ class RiderManagementScreenState extends State<RiderManagementScreen> {
     });
 
     if (_nameError != null || _usernameError != null || _phoneError != null) {
+      // We need to trigger a rebuild of the modal. 
+      // The easiest way is to use a StatefulBuilder inside the modal.
       return;
     }
 
@@ -97,7 +100,6 @@ class RiderManagementScreenState extends State<RiderManagementScreen> {
     });
 
     try {
-      // Format phone: remove leading '0' if user typed it, as prefix +62 is already handled
       String formattedPhone = phone;
       if (formattedPhone.startsWith('0')) {
         formattedPhone = formattedPhone.substring(1);
@@ -111,6 +113,7 @@ class RiderManagementScreenState extends State<RiderManagementScreen> {
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         if (mounted) {
+          Navigator.pop(modalContext);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Rider berhasil ditambahkan'),
@@ -122,7 +125,6 @@ class RiderManagementScreenState extends State<RiderManagementScreen> {
           _newUsernameController.clear();
           _newPhoneController.clear();
           setState(() {
-            _showAddSection = false;
             _isSavingRider = false;
           });
           
@@ -156,6 +158,152 @@ class RiderManagementScreenState extends State<RiderManagementScreen> {
     }
   }
 
+  void _showAddRiderModal() {
+    // Reset errors when opening
+    _nameError = null;
+    _usernameError = null;
+    _phoneError = null;
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Container(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+            ),
+            decoration: const BoxDecoration(
+              color: AppColors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+            ),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Tambah Rider Baru',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  TextField(
+                    controller: _newNameController,
+                    decoration: InputDecoration(
+                      labelText: 'Nama Lengkap',
+                      hintText: 'Masukkan nama rider',
+                      errorText: _nameError,
+                      prefixIcon: const Icon(Icons.person_outline_rounded),
+                    ),
+                    onChanged: (_) {
+                      if (_nameError != null) {
+                        setState(() => _nameError = null);
+                        setModalState(() {});
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _newUsernameController,
+                    decoration: InputDecoration(
+                      labelText: 'Username',
+                      hintText: 'Masukkan username rider',
+                      errorText: _usernameError,
+                      prefixIcon: const Icon(Icons.alternate_email_rounded),
+                    ),
+                    onChanged: (_) {
+                      if (_usernameError != null) {
+                        setState(() => _usernameError = null);
+                        setModalState(() {});
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _newPhoneController,
+                    keyboardType: TextInputType.phone,
+                    decoration: InputDecoration(
+                      labelText: 'Nomor WhatsApp',
+                      hintText: '81XXXXXX',
+                      prefixText: '+62 ',
+                      errorText: _phoneError,
+                      prefixIcon: const Icon(Icons.phone_android_rounded),
+                    ),
+                    onChanged: (_) {
+                      if (_phoneError != null) {
+                        setState(() => _phoneError = null);
+                        setModalState(() {});
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 32),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _isSavingRider ? null : () async {
+                        // Re-trigger validation to show errors in modal
+                        setModalState(() {
+                          _nameError = _newNameController.text.trim().isEmpty ? 'Nama lengkap tidak boleh kosong' : null;
+                          _usernameError = _newUsernameController.text.trim().isEmpty ? 'Username tidak boleh kosong' : null;
+                          _phoneError = _newPhoneController.text.trim().isEmpty ? 'Nomor WhatsApp tidak boleh kosong' : null;
+                        });
+                        
+                        if (_nameError == null && _usernameError == null && _phoneError == null) {
+                          setModalState(() => _isSavingRider = true);
+                          await _addRider(context);
+                          setModalState(() => _isSavingRider = false);
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.black,
+                        padding: const EdgeInsets.symmetric(vertical: 18),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: _isSavingRider
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.primary,
+                              ),
+                            )
+                          : const Text(
+                              'Simpan Rider',
+                              style: TextStyle(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -171,14 +319,9 @@ class RiderManagementScreenState extends State<RiderManagementScreen> {
                 : ListView.builder(
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.only(left: 24, right: 24, top: 8, bottom: 100),
-                    itemCount: _ridersList.length + (_showAddSection ? 1 : 0),
+                    itemCount: _ridersList.length,
                     itemBuilder: (context, index) {
-                    if (_showAddSection && index == 0) {
-                      return _buildAddRiderSection();
-                    }
-                    
-                    final riderIndex = _showAddSection ? index - 1 : index;
-                    final rider = _ridersList[riderIndex];
+                      final rider = _ridersList[index];
                     
                     return RiderCard(
                       rider: rider,
@@ -218,103 +361,7 @@ class RiderManagementScreenState extends State<RiderManagementScreen> {
     );
   }
 
-  Widget _buildAddRiderSection() {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 24),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Tambah Rider Baru',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _newNameController,
-            decoration: InputDecoration(
-              labelText: 'Nama Lengkap',
-              hintText: 'Masukkan nama rider',
-              errorText: _nameError,
-            ),
-            onChanged: (_) {
-              if (_nameError != null) setState(() => _nameError = null);
-            },
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _newUsernameController,
-            decoration: InputDecoration(
-              labelText: 'Username',
-              hintText: 'Masukkan username rider',
-              errorText: _usernameError,
-            ),
-            onChanged: (_) {
-              if (_usernameError != null) setState(() => _usernameError = null);
-            },
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _newPhoneController,
-            keyboardType: TextInputType.phone,
-            decoration: InputDecoration(
-              labelText: 'Nomor WhatsApp',
-              hintText: '08...',
-              prefixText: '+62 ',
-              errorText: _phoneError,
-            ),
-            onChanged: (_) {
-              if (_phoneError != null) setState(() => _phoneError = null);
-            },
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _isSavingRider ? null : _addRider,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.black,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-              child: _isSavingRider
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppColors.primary,
-                      ),
-                    )
-                  : const Text(
-                      'Simpan Rider',
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+
 }
 
 class RiderCard extends StatefulWidget {
