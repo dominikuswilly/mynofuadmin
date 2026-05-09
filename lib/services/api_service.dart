@@ -14,6 +14,7 @@ class ApiService {
       Uri.parse('$baseUrl$endpoint'),
       headers: {
         'Authorization': 'Bearer $accessToken',
+        'x-request-id': DateTime.now().millisecondsSinceEpoch.toString(),
       },
     );
 
@@ -24,6 +25,7 @@ class ApiService {
           Uri.parse('$baseUrl$endpoint'),
           headers: {
             'Authorization': 'Bearer $newAccessToken',
+            'x-request-id': DateTime.now().millisecondsSinceEpoch.toString(),
           },
         );
       }
@@ -41,6 +43,7 @@ class ApiService {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $accessToken',
+        'x-request-id': DateTime.now().millisecondsSinceEpoch.toString(),
       },
       body: jsonEncode(body),
     );
@@ -53,6 +56,7 @@ class ApiService {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer $newAccessToken',
+            'x-request-id': DateTime.now().millisecondsSinceEpoch.toString(),
           },
           body: jsonEncode(body),
         );
@@ -71,6 +75,7 @@ class ApiService {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $accessToken',
+        'x-request-id': DateTime.now().millisecondsSinceEpoch.toString(),
       },
       body: jsonEncode(body),
     );
@@ -83,6 +88,7 @@ class ApiService {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer $newAccessToken',
+            'x-request-id': DateTime.now().millisecondsSinceEpoch.toString(),
           },
           body: jsonEncode(body),
         );

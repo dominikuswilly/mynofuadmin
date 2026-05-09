@@ -115,22 +115,29 @@ class _AdminScreenState extends State<AdminScreen> {
           ],
         ),
       ),
-      floatingActionButton: _selectedIndex == 1 || _selectedIndex == 2
-          ? FloatingActionButton(
-              onPressed: () {
-                if (_selectedIndex == 1) {
-                  _productKey.currentState?.toggleAddSection();
-                } else if (_selectedIndex == 2) {
-                  _riderKey.currentState?.toggleAddSection();
-                }
-                setState(() {}); // Refresh to update FAB icon
-              },
-              backgroundColor: AppColors.black,
-              child: Icon(
-                _getFabIcon(),
-                color: AppColors.primary,
-              ),
-            )
+      floatingActionButton: _selectedIndex >= 1 && _selectedIndex <= 3
+          ? (_selectedIndex == 3
+              ? FloatingActionButton.extended(
+                  onPressed: () => _stockKey.currentState?.showInitiateStockModal(),
+                  backgroundColor: AppColors.black,
+                  label: const Text('Inisialisasi Pagi', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+                  icon: const Icon(Icons.wb_sunny_rounded, color: AppColors.primary),
+                )
+              : FloatingActionButton(
+                  onPressed: () {
+                    if (_selectedIndex == 1) {
+                      _productKey.currentState?.toggleAddSection();
+                    } else if (_selectedIndex == 2) {
+                      _riderKey.currentState?.toggleAddSection();
+                    }
+                    setState(() {}); // Refresh to update FAB icon
+                  },
+                  backgroundColor: AppColors.black,
+                  child: Icon(
+                    _getFabIcon(),
+                    color: AppColors.primary,
+                  ),
+                ))
           : null,
     );
   }
