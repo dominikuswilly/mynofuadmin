@@ -669,36 +669,98 @@ class _InitiateStockModalState extends State<_InitiateStockModal> {
       itemCount: _products.length,
       itemBuilder: (context, index) {
         final product = _products[index];
+        final controller = _controllers[product.id]!;
+
+        String getEmoji() {
+          switch (product.category.toUpperCase()) {
+            case 'KOPI': return '☕';
+            case 'COKELAT': return '🥛';
+            case 'TEH': return '🍵';
+            case 'SNACK': return '🥐';
+            default: return '📦';
+          }
+        }
+
+        void updateQty(int delta) {
+          int current = int.tryParse(controller.text) ?? 0;
+          int next = current + delta;
+          if (next < 0) next = 0;
+          controller.text = next.toString();
+        }
+
         return Container(
-          margin: const EdgeInsets.only(bottom: 16),
-          padding: const EdgeInsets.all(16),
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: AppColors.grey.withOpacity(0.3),
-            borderRadius: BorderRadius.circular(16),
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppColors.grey),
           ),
           child: Row(
             children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: AppColors.grey.withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Center(child: Text(getEmoji(), style: const TextStyle(fontSize: 24))),
+              ),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(product.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    Text(product.category, style: TextStyle(fontSize: 12, color: Colors.black.withOpacity(0.5))),
+                    Text(
+                      product.name,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      product.category,
+                      style: TextStyle(fontSize: 11, color: Colors.black.withOpacity(0.4), fontWeight: FontWeight.w500),
+                    ),
                   ],
                 ),
               ),
-              SizedBox(
-                width: 100,
-                child: TextField(
-                  controller: _controllers[product.id],
-                  keyboardType: TextInputType.number,
-                  textAlign: TextAlign.center,
-                  decoration: InputDecoration(
-                    contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    fillColor: AppColors.white,
-                    filled: true,
-                  ),
+              const SizedBox(width: 8),
+              Container(
+                decoration: BoxDecoration(
+                  color: AppColors.grey.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    _QtyButton(
+                      icon: Icons.remove_rounded,
+                      onPressed: () => updateQty(-1),
+                    ),
+                    SizedBox(
+                      width: 40,
+                      child: TextField(
+                        controller: controller,
+                        keyboardType: TextInputType.number,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        onChanged: (value) {
+                          if (value.length > 1 && value.startsWith('0')) {
+                            controller.text = value.replaceFirst(RegExp(r'^0+'), '');
+                            controller.selection = TextSelection.fromPosition(TextPosition(offset: controller.text.length));
+                          }
+                        },
+                        decoration: const InputDecoration(
+                          isDense: true,
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                    ),
+                    _QtyButton(
+                      icon: Icons.add_rounded,
+                      onPressed: () => updateQty(1),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -829,6 +891,24 @@ class _InitiateStockModalState extends State<_InitiateStockModal> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _QtyButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  const _QtyButton({required this.icon, required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+      icon: Icon(icon, size: 18, color: AppColors.black),
+      onPressed: onPressed,
     );
   }
 }
