@@ -652,8 +652,15 @@ class _InitiateStockModalState extends State<_InitiateStockModal> {
                   child: Text(rider.name[0], style: const TextStyle(color: AppColors.black, fontWeight: FontWeight.bold)),
                 ),
                 const SizedBox(width: 16),
-                Text(rider.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                const Spacer(),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(rider.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text('@${rider.username}', style: TextStyle(fontSize: 12, color: Colors.black.withOpacity(0.5))),
+                    ],
+                  ),
+                ),
                 if (isSelected) const Icon(Icons.check_circle_rounded, color: AppColors.primary),
               ],
             ),
@@ -804,6 +811,11 @@ class _InitiateStockModalState extends State<_InitiateStockModal> {
                 _selectedRider?.name ?? '-',
                 style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
+              if (_selectedRider != null)
+                Text(
+                  '@${_selectedRider!.username}',
+                  style: TextStyle(color: Colors.black.withOpacity(0.4), fontSize: 14, fontWeight: FontWeight.w500),
+                ),
               Text(
                 'Rider Penerima',
                 style: TextStyle(color: Colors.black.withOpacity(0.5), fontSize: 14),
