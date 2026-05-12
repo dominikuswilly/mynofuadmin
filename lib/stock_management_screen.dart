@@ -489,23 +489,6 @@ class StockManagementScreenState extends State<StockManagementScreen> {
               Tab(text: 'Kerusakan'),
             ],
           ),
-          const SizedBox(height: 12),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _buildCategoryChip('SEMUA', 'all'),
-                  if (_isLoadingCategories)
-                    const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  else
-                    ..._categories.map((category) => _buildCategoryChip(category.name.toUpperCase(), category.id)),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
         ],
       ),
     );
