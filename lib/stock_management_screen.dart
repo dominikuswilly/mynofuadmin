@@ -23,11 +23,32 @@ class StockManagementScreenState extends State<StockManagementScreen> {
   List<StockItem> _stocksList = [];
   bool _isLoadingStocks = true;
 
+  // Filter state
+  DateTime _startDate = DateTime.now();
+  DateTime _endDate = DateTime.now();
+  Rider? _selectedFilterRider;
+  List<Rider> _ridersListForFilter = [];
+
   @override
   void initState() {
     super.initState();
     _fetchCategories();
+    _fetchRidersForFilter();
     _fetchStocks();
+  }
+
+  Future<void> _fetchRidersForFilter() async {
+    try {
+      final response = await ApiService.get('/private/admin/rider');
+      if (response.statusCode == 200) {
+        final List<dynamic> ridersJson = jsonDecode(response.body);
+        setState(() {
+          _ridersListForFilter = ridersJson.map((json) => Rider.fromJson(json)).toList();
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching riders for filter: $e');
+    }
   }
 
   Future<void> _fetchStocks() async {
@@ -36,24 +57,36 @@ class StockManagementScreenState extends State<StockManagementScreen> {
     });
 
     try {
-      // For now, using product endpoint as fallback if stock is not ready,
-      // or using a mock if it fails.
-      final response = await ApiService.get('/private/admin/product');
+      String startDateStr = _startDate.toIso8601String().split('T')[0];
+      String endDateStr = _endDate.toIso8601String().split('T')[0];
+      
+      String url = '/private/admin/transaction/stock?date_start=$startDateStr&date_end=$endDateStr';
+      if (_selectedFilterRider != null) {
+        url += '&rider_id=${_selectedFilterRider!.id}&rider_name=${Uri.encodeComponent(_selectedFilterRider!.name)}';
+      }
+
+      final response = await ApiService.get(url);
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = jsonDecode(response.body);
-        if (data['status'] == 'success') {
-          final List<dynamic> productsJson = data['data'];
+        if (data['status'] == 'success' && data['data'] != null) {
+          final List<dynamic> ridersData = data['data'];
+          List<StockItem> allStocks = [];
+          
+          for (var riderData in ridersData) {
+            if (riderData['stock_list'] != null) {
+              final List<dynamic> stockListJson = riderData['stock_list'];
+              allStocks.addAll(stockListJson.map((json) => StockItem.fromJson(json)).toList());
+            }
+          }
+
           setState(() {
-            // Mapping products to stock items for demonstration
-            _stocksList = productsJson.map((json) {
-              return StockItem(
-                productId: json['id'] as String,
-                productName: json['name'] as String,
-                qtyBase: 50, // Mock base
-                qtyCurrent: (json['id'].hashCode % 50), // Mock current
-              );
-            }).toList();
+            _stocksList = allStocks;
+            _isLoadingStocks = false;
+          });
+        } else {
+          setState(() {
+            _stocksList = [];
             _isLoadingStocks = false;
           });
         }
@@ -118,23 +151,143 @@ class StockManagementScreenState extends State<StockManagementScreen> {
   }
 
   Widget _buildInventoryTab() {
-    return RefreshIndicator(
-      onRefresh: () async {
-        await _fetchCategories();
-        await _fetchStocks();
-      },
-      child: _isLoadingStocks
-          ? const Center(child: CircularProgressIndicator())
-          : _stocksList.isEmpty
-              ? const Center(child: Text('Tidak ada data stok'))
-              : ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 100),
-                  itemCount: _stocksList.length,
-                  itemBuilder: (context, index) {
-                    final item = _stocksList[index];
-                    return _buildStockCard(item);
-                  },
+    return Column(
+      children: [
+        _buildInventoryFilters(),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: () async {
+              await _fetchCategories();
+              await _fetchStocks();
+            },
+            child: _isLoadingStocks
+                ? const Center(child: CircularProgressIndicator())
+                : _stocksList.isEmpty
+                    ? const Center(child: Text('Tidak ada data stok'))
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(24),
+                        itemCount: _stocksList.length,
+                        itemBuilder: (context, index) {
+                          final item = _stocksList[index];
+                          return _buildStockCard(item);
+                        },
+                      ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInventoryFilters() {
+    String startDateStr = _startDate.toIso8601String().split('T')[0];
+    String endDateStr = _endDate.toIso8601String().split('T')[0];
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+      decoration: const BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(32),
+          bottomRight: Radius.circular(32),
+        ),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _buildFilterBox(
+                  label: 'Rider',
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<Rider>(
+                      isExpanded: true,
+                      value: _selectedFilterRider,
+                      hint: const Text('Semua Rider', style: TextStyle(fontSize: 14)),
+                      items: [
+                        const DropdownMenuItem<Rider>(
+                          value: null,
+                          child: Text('Semua Rider', style: TextStyle(fontSize: 14)),
+                        ),
+                        ..._ridersListForFilter.map((rider) => DropdownMenuItem<Rider>(
+                          value: rider,
+                          child: Text(rider.name, style: const TextStyle(fontSize: 14)),
+                        )),
+                      ],
+                      onChanged: (value) {
+                        setState(() => _selectedFilterRider = value);
+                        _fetchStocks();
+                      },
+                    ),
+                  ),
                 ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildFilterBox(
+                  label: 'Dari',
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _startDate,
+                      firstDate: DateTime(2024),
+                      lastDate: DateTime(2030),
+                    );
+                    if (picked != null) {
+                      setState(() => _startDate = picked);
+                      _fetchStocks();
+                    }
+                  },
+                  child: Text(startDateStr, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildFilterBox(
+                  label: 'Sampai',
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _endDate,
+                      firstDate: DateTime(2024),
+                      lastDate: DateTime(2030),
+                    );
+                    if (picked != null) {
+                      setState(() => _endDate = picked);
+                      _fetchStocks();
+                    }
+                  },
+                  child: Text(endDateStr, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterBox({required String label, required Widget child, VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.grey.withOpacity(0.5),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: TextStyle(fontSize: 10, color: Colors.black.withOpacity(0.4), fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            child,
+          ],
+        ),
+      ),
     );
   }
 
@@ -388,7 +541,7 @@ class StockManagementScreenState extends State<StockManagementScreen> {
   }
 
   Widget _buildStockCard(StockItem item) {
-    double percentage = item.qtyCurrent / item.qtyBase;
+    double percentage = item.qtyBase > 0 ? (item.qtyCurrent / item.qtyBase).clamp(0.0, 1.0) : 0.0;
     Color progressColor = percentage < 0.2 ? Colors.red : (percentage < 0.5 ? Colors.orange : Colors.green);
 
     return Container(
@@ -432,12 +585,19 @@ class StockManagementScreenState extends State<StockManagementScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Stok saat ini: ${item.qtyCurrent}',
-                style: TextStyle(
-                  color: AppColors.black.withOpacity(0.6),
-                  fontWeight: FontWeight.w500,
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Stok saat ini: ${item.qtyCurrent}',
+                    style: TextStyle(
+                      color: AppColors.black.withOpacity(0.6),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  _buildStatusBadge(item.confirmed),
+                ],
               ),
               Text(
                 '${(percentage * 100).toInt()}%',
@@ -459,6 +619,36 @@ class StockManagementScreenState extends State<StockManagementScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildStatusBadge(int status) {
+    Color color;
+    String label;
+    switch (status) {
+      case 2:
+        color = Colors.green;
+        label = 'Dikonfirmasi';
+        break;
+      case 1:
+        color = Colors.blue;
+        label = 'Dalam Proses';
+        break;
+      default:
+        color = Colors.orange;
+        label = 'Pending';
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
       ),
     );
   }
