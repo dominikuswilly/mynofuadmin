@@ -5,6 +5,7 @@ import 'models/stock_item.dart';
 import 'models/rider.dart';
 import 'models/product.dart';
 import 'dart:convert';
+import 'package:flutter/services.dart';
 import 'services/api_service.dart';
 
 class StockManagementScreen extends StatefulWidget {
@@ -572,26 +573,35 @@ class _InitiateStockModalState extends State<_InitiateStockModal> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.85,
-      decoration: const BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-      ),
-      child: Column(
-        children: [
-          _buildHeader(),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _currentStep == 0
-                    ? _buildRiderSelection()
-                    : _currentStep == 1
-                        ? _buildQuantityEntry()
-                        : _buildReview(),
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.85,
           ),
-          _buildFooter(),
-        ],
+          decoration: const BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildHeader(),
+              Expanded(
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _currentStep == 0
+                        ? _buildRiderSelection()
+                        : _currentStep == 1
+                            ? _buildQuantityEntry()
+                            : _buildReview(),
+              ),
+              _buildFooter(),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -630,6 +640,7 @@ class _InitiateStockModalState extends State<_InitiateStockModal> {
 
   Widget _buildRiderSelection() {
     return ListView.builder(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: const EdgeInsets.symmetric(horizontal: 24),
       itemCount: _riders.length,
       itemBuilder: (context, index) {
@@ -672,6 +683,7 @@ class _InitiateStockModalState extends State<_InitiateStockModal> {
 
   Widget _buildQuantityEntry() {
     return ListView.builder(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: const EdgeInsets.symmetric(horizontal: 24),
       itemCount: _products.length,
       itemBuilder: (context, index) {
@@ -692,6 +704,7 @@ class _InitiateStockModalState extends State<_InitiateStockModal> {
           int current = int.tryParse(controller.text) ?? 0;
           int next = current + delta;
           if (next < 0) next = 0;
+          if (next > 999) next = 999;
           controller.text = next.toString();
         }
 
@@ -751,11 +764,21 @@ class _InitiateStockModalState extends State<_InitiateStockModal> {
                         textAlign: TextAlign.center,
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                         onChanged: (value) {
-                          if (value.length > 1 && value.startsWith('0')) {
-                            controller.text = value.replaceFirst(RegExp(r'^0+'), '');
-                            controller.selection = TextSelection.fromPosition(TextPosition(offset: controller.text.length));
+                          if (value.isNotEmpty) {
+                            int? val = int.tryParse(value);
+                            if (val != null && val > 999) {
+                              controller.text = '999';
+                              controller.selection = TextSelection.fromPosition(const TextPosition(offset: 3));
+                            } else if (value.length > 1 && value.startsWith('0')) {
+                              controller.text = value.replaceFirst(RegExp(r'^0+'), '');
+                              controller.selection = TextSelection.fromPosition(TextPosition(offset: controller.text.length));
+                            }
                           }
                         },
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(3),
+                        ],
                         decoration: const InputDecoration(
                           isDense: true,
                           border: InputBorder.none,
@@ -788,6 +811,8 @@ class _InitiateStockModalState extends State<_InitiateStockModal> {
         });
       }
     }
+
+    items.sort((a, b) => (a['name'] as String).compareTo(b['name'] as String));
 
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 24),
