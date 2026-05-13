@@ -45,6 +45,10 @@ class StockManagementScreenState extends State<StockManagementScreen> {
         final List<dynamic> ridersJson = jsonDecode(response.body);
         setState(() {
           _ridersListForFilter = ridersJson.map((json) => Rider.fromJson(json)).toList();
+          if (_ridersListForFilter.isNotEmpty) {
+            _selectedFilterRider = _ridersListForFilter.first;
+            _fetchStocks();
+          }
         });
       }
     } catch (e) {
@@ -352,17 +356,11 @@ class StockManagementScreenState extends State<StockManagementScreen> {
                   child: DropdownButton<Rider>(
                     isExpanded: true,
                     value: _selectedFilterRider,
-                    hint: const Text('Semua Rider', style: TextStyle(fontSize: 13)),
-                    items: [
-                      const DropdownMenuItem<Rider>(
-                        value: null,
-                        child: Text('Semua Rider', style: TextStyle(fontSize: 13)),
-                      ),
-                      ..._ridersListForFilter.map((rider) => DropdownMenuItem<Rider>(
-                        value: rider,
-                        child: Text(rider.name, style: const TextStyle(fontSize: 13)),
-                      )),
-                    ],
+                    hint: const Text('Pilih Rider', style: TextStyle(fontSize: 13)),
+                    items: _ridersListForFilter.map((rider) => DropdownMenuItem<Rider>(
+                      value: rider,
+                      child: Text(rider.name, style: const TextStyle(fontSize: 13)),
+                    )).toList(),
                     onChanged: (value) {
                       setState(() => _selectedFilterRider = value);
                       _fetchStocks();
