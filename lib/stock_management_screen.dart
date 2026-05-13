@@ -27,6 +27,10 @@ class StockManagementScreenState extends State<StockManagementScreen> {
   Rider? _selectedFilterRider;
   List<Rider> _ridersListForFilter = [];
 
+  // Expansion state
+  final Set<String> _expandedDates = {};
+  final Set<String> _expandedRiders = {}; // Format: "date|riderName"
+
   @override
   void initState() {
     super.initState();
@@ -71,15 +75,32 @@ class StockManagementScreenState extends State<StockManagementScreen> {
           List<StockItem> allStocks = [];
           
           if (rawData is List) {
-            for (var item in rawData) {
-              if (item is Map<String, dynamic>) {
-                // Check if it's grouped by rider (has stock_list) or flat
-                if (item.containsKey('stock_list') && item['stock_list'] is List) {
-                  final List<dynamic> stockListJson = item['stock_list'];
-                  allStocks.addAll(stockListJson.map((json) => StockItem.fromJson(json)).toList());
-                } else if (item.containsKey('product_id')) {
-                  // It's a flat list of stock items
-                  allStocks.add(StockItem.fromJson(item));
+            for (var riderData in rawData) {
+              if (riderData is Map<String, dynamic> && riderData['stock_list'] != null) {
+                final String riderName = riderData['rider_name']?.toString() ?? 'Unknown Rider';
+                final dynamic stockList = riderData['stock_list'];
+                if (stockList is List) {
+                  for (var dateLog in stockList) {
+                    if (dateLog is Map<String, dynamic> && dateLog['item_list'] is List) {
+                      final String logDate = dateLog['created_at']?.toString() ?? '';
+                      final List<dynamic> itemList = dateLog['item_list'];
+                      for (var itemJson in itemList) {
+                        try {
+                          if (itemJson is Map<String, dynamic>) {
+                            allStocks.add(StockItem.fromJson(itemJson, createdAt: logDate, riderName: riderName));
+                          }
+                        } catch (e) {
+                          debugPrint('Error parsing stock item: $e');
+                        }
+                      }
+                    }
+                  }
+                }
+              } else if (riderData is Map<String, dynamic> && riderData.containsKey('product_id')) {
+                try {
+                  allStocks.add(StockItem.fromJson(riderData));
+                } catch (e) {
+                  debugPrint('Error parsing flat stock item: $e');
                 }
               }
             }
@@ -133,6 +154,37 @@ class StockManagementScreenState extends State<StockManagementScreen> {
   }
 
   Widget _buildInventoryTab() {
+    // Nested grouping: Date -> Rider -> Stocks
+    Map<String, Map<String, List<StockItem>>> nestedGroups = {};
+    for (var item in _stocksList) {
+      String date = item.createdAt.isEmpty ? 'Tanpa Tanggal' : item.createdAt;
+      String rider = item.riderName.isEmpty ? 'Rider Tidak Diketahui' : item.riderName;
+      
+      nestedGroups.putIfAbsent(date, () => {});
+      nestedGroups[date]!.putIfAbsent(rider, () => []).add(item);
+    }
+
+    List<String> sortedDates = nestedGroups.keys.toList()..sort((a, b) => b.compareTo(a));
+
+    List<dynamic> listItems = [];
+    for (var date in sortedDates) {
+      listItems.add({'type': 'date', 'value': date});
+      
+      if (_expandedDates.contains(date)) {
+        var ridersInDate = nestedGroups[date]!;
+        List<String> sortedRiders = ridersInDate.keys.toList()..sort();
+        
+        for (var rider in sortedRiders) {
+          String riderKey = "$date|$rider";
+          listItems.add({'type': 'rider', 'date': date, 'value': rider});
+          
+          if (_expandedRiders.contains(riderKey)) {
+            listItems.addAll(ridersInDate[rider]!);
+          }
+        }
+      }
+    }
+
     return Column(
       children: [
         _buildInventoryFilters(),
@@ -146,11 +198,101 @@ class StockManagementScreenState extends State<StockManagementScreen> {
                 : _stocksList.isEmpty
                     ? const Center(child: Text('Tidak ada data stok'))
                     : ListView.builder(
-                        padding: const EdgeInsets.all(24),
-                        itemCount: _stocksList.length,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        itemCount: listItems.length,
                         itemBuilder: (context, index) {
-                          final item = _stocksList[index];
-                          return _buildStockCard(item);
+                          final entry = listItems[index];
+                          
+                          if (entry is Map && entry['type'] == 'date') {
+                            final date = entry['value'] as String;
+                            final isExpanded = _expandedDates.contains(date);
+                            return InkWell(
+                              onTap: () => setState(() {
+                                if (isExpanded) _expandedDates.remove(date);
+                                else _expandedDates.add(date);
+                              }),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 4),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      isExpanded ? Icons.keyboard_arrow_down_rounded : Icons.keyboard_arrow_right_rounded,
+                                      color: AppColors.black,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const Icon(Icons.calendar_today_rounded, size: 16, color: AppColors.black),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      date,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 18,
+                                        color: AppColors.black,
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    Text(
+                                      '${nestedGroups[date]!.length} Rider',
+                                      style: TextStyle(fontSize: 12, color: Colors.black.withOpacity(0.4)),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }
+                          
+                          if (entry is Map && entry['type'] == 'rider') {
+                            final date = entry['date'] as String;
+                            final rider = entry['value'] as String;
+                            final riderKey = "$date|$rider";
+                            final isExpanded = _expandedRiders.contains(riderKey);
+                            
+                            return InkWell(
+                              onTap: () => setState(() {
+                                if (isExpanded) _expandedRiders.remove(riderKey);
+                                else _expandedRiders.add(riderKey);
+                              }),
+                              child: Container(
+                                margin: const EdgeInsets.only(left: 24, bottom: 8, top: 4),
+                                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                                decoration: BoxDecoration(
+                                  color: AppColors.grey.withOpacity(0.3),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      isExpanded ? Icons.keyboard_arrow_down_rounded : Icons.keyboard_arrow_right_rounded,
+                                      size: 20,
+                                      color: AppColors.black.withOpacity(0.6),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const Icon(Icons.person_rounded, size: 16, color: AppColors.black),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      rider,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                        color: AppColors.black,
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    Text(
+                                      '${nestedGroups[date]![rider]!.length} Item',
+                                      style: TextStyle(fontSize: 11, color: Colors.black.withOpacity(0.4)),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }
+                          
+                          final item = entry as StockItem;
+                          return Padding(
+                            padding: const EdgeInsets.only(left: 48),
+                            child: _buildStockCard(item),
+                          );
                         },
                       ),
           ),
