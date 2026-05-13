@@ -25,6 +25,7 @@ class StockManagementScreenState extends State<StockManagementScreen> {
   DateTime _startDate = DateTime.now();
   DateTime _endDate = DateTime.now();
   Rider? _selectedFilterRider;
+  String? _selectedStatus;
   List<Rider> _ridersListForFilter = [];
 
   // Expansion state
@@ -68,6 +69,9 @@ class StockManagementScreenState extends State<StockManagementScreen> {
       String url = '/private/admin/transaction/stock?date_start=$startDateStr&date_end=$endDateStr';
       if (_selectedFilterRider != null) {
         url += '&rider_id=${_selectedFilterRider!.id}';
+      }
+      if (_selectedStatus != null && _selectedStatus != 'All') {
+        url += '&status=${_selectedStatus!.toUpperCase()}';
       }
 
       final response = await ApiService.get(url);
@@ -158,36 +162,14 @@ class StockManagementScreenState extends State<StockManagementScreen> {
   }
 
   Widget _buildInventoryTab() {
-    // Nested grouping: Date -> Rider -> Stocks
-    Map<String, Map<String, List<StockItem>>> nestedGroups = {};
+    // Group stocks by date
+    Map<String, List<StockItem>> groupedStocks = {};
     for (var item in _stocksList) {
       String date = item.createdAt.isEmpty ? 'Tanpa Tanggal' : item.createdAt;
-      String rider = item.riderName.isEmpty ? 'Rider Tidak Diketahui' : item.riderName;
-      
-      nestedGroups.putIfAbsent(date, () => {});
-      nestedGroups[date]!.putIfAbsent(rider, () => []).add(item);
+      groupedStocks.putIfAbsent(date, () => []).add(item);
     }
 
-    List<String> sortedDates = nestedGroups.keys.toList()..sort((a, b) => b.compareTo(a));
-
-    List<dynamic> listItems = [];
-    for (var date in sortedDates) {
-      listItems.add({'type': 'date', 'value': date});
-      
-      if (_expandedDates.contains(date)) {
-        var ridersInDate = nestedGroups[date]!;
-        List<String> sortedRiders = ridersInDate.keys.toList()..sort();
-        
-        for (var rider in sortedRiders) {
-          String riderKey = "$date|$rider";
-          listItems.add({'type': 'rider', 'date': date, 'value': rider});
-          
-          if (_expandedRiders.contains(riderKey)) {
-            listItems.addAll(ridersInDate[rider]!);
-          }
-        }
-      }
-    }
+    List<String> sortedDates = groupedStocks.keys.toList()..sort((a, b) => b.compareTo(a));
 
     return Column(
       children: [
@@ -201,129 +183,92 @@ class StockManagementScreenState extends State<StockManagementScreen> {
                 ? const Center(child: CircularProgressIndicator())
                 : _stocksList.isEmpty
                     ? const Center(child: Text('Tidak ada data stok'))
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-                        itemCount: listItems.length,
-                        itemBuilder: (context, index) {
-                          final entry = listItems[index];
-                          
-                          if (entry is Map && entry['type'] == 'date') {
-                            final date = entry['value'] as String;
-                            final isExpanded = _expandedDates.contains(date);
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: InkWell(
-                                onTap: () => setState(() {
-                                  if (isExpanded) _expandedDates.remove(date);
-                                  else _expandedDates.add(date);
-                                }),
-                                borderRadius: BorderRadius.circular(20),
-                                child: Container(
-                                  padding: const EdgeInsets.all(20),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.black,
-                                    borderRadius: BorderRadius.circular(20),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.1),
-                                        blurRadius: 10,
-                                        offset: const Offset(0, 4),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      const Icon(Icons.calendar_today_rounded, size: 20, color: AppColors.primary),
-                                      const SizedBox(width: 16),
-                                      Text(
-                                        date,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 18,
+                    : CustomScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        slivers: [
+                          for (var date in sortedDates) ...[
+                            SliverPadding(
+                              padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
+                              sliver: SliverToBoxAdapter(
+                                child: InkWell(
+                                  onTap: () => setState(() {
+                                    if (_expandedDates.contains(date)) {
+                                      _expandedDates.remove(date);
+                                    } else {
+                                      _expandedDates.add(date);
+                                    }
+                                  }),
+                                  borderRadius: BorderRadius.circular(20),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(20),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.black,
+                                      borderRadius: BorderRadius.circular(20),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.1),
+                                          blurRadius: 10,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.calendar_today_rounded, size: 20, color: AppColors.primary),
+                                        const SizedBox(width: 16),
+                                        Text(
+                                          date,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 18,
+                                            color: AppColors.primary,
+                                          ),
+                                        ),
+                                        const Spacer(),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.primary.withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Text(
+                                            '${groupedStocks[date]!.length} Item',
+                                            style: const TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.bold),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Icon(
+                                          _expandedDates.contains(date) ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
                                           color: AppColors.primary,
                                         ),
-                                      ),
-                                      const Spacer(),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: AppColors.primary.withOpacity(0.1),
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        child: Text(
-                                          '${nestedGroups[date]!.length} Rider',
-                                          style: const TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.bold),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Icon(
-                                        isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
-                                        color: AppColors.primary,
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
-                            );
-                          }
-                          
-                          if (entry is Map && entry['type'] == 'rider') {
-                            final date = entry['date'] as String;
-                            final rider = entry['value'] as String;
-                            final riderKey = "$date|$rider";
-                            final isExpanded = _expandedRiders.contains(riderKey);
-                            
-                            return Padding(
-                              padding: const EdgeInsets.only(left: 12, bottom: 8),
-                              child: InkWell(
-                                onTap: () => setState(() {
-                                  if (isExpanded) _expandedRiders.remove(riderKey);
-                                  else _expandedRiders.add(riderKey);
-                                }),
-                                borderRadius: BorderRadius.circular(16),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.white,
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(color: AppColors.grey),
+                            ),
+                            if (_expandedDates.contains(date))
+                              SliverPadding(
+                                padding: const EdgeInsets.symmetric(horizontal: 24),
+                                sliver: SliverGrid(
+                                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 2,
+                                    mainAxisSpacing: 12,
+                                    crossAxisSpacing: 12,
+                                    mainAxisExtent: 200, // Fixed height for cards in grid
                                   ),
-                                  child: Row(
-                                    children: [
-                                      const Icon(Icons.person_rounded, size: 18, color: AppColors.black),
-                                      const SizedBox(width: 12),
-                                      Text(
-                                        rider,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 15,
-                                          color: AppColors.black,
-                                        ),
-                                      ),
-                                      const Spacer(),
-                                      Text(
-                                        '${nestedGroups[date]![rider]!.length} Item',
-                                        style: TextStyle(fontSize: 12, color: Colors.black.withOpacity(0.4), fontWeight: FontWeight.w500),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Icon(
-                                        isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
-                                        size: 20,
-                                        color: AppColors.black.withOpacity(0.4),
-                                      ),
-                                    ],
+                                  delegate: SliverChildBuilderDelegate(
+                                    (context, index) {
+                                      final item = groupedStocks[date]![index];
+                                      return _buildStockCard(item, isGrid: true);
+                                    },
+                                    childCount: groupedStocks[date]!.length,
                                   ),
                                 ),
                               ),
-                            );
-                          }
-                          
-                          final item = entry as StockItem;
-                          return Padding(
-                            padding: const EdgeInsets.only(left: 24),
-                            child: _buildStockCard(item),
-                          );
-                        },
+                          ],
+                          const SliverToBoxAdapter(child: SizedBox(height: 32)),
+                        ],
                       ),
           ),
         ),
@@ -407,6 +352,28 @@ class StockManagementScreenState extends State<StockManagementScreen> {
                   }
                 },
                 child: Text(endDateStr, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.black)),
+              ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 130,
+              child: _buildFilterBox(
+                label: 'Status',
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    isExpanded: true,
+                    value: _selectedStatus ?? 'All',
+                    hint: const Text('Semua Status', style: TextStyle(fontSize: 13)),
+                    items: ['All', 'Accepted', 'Rejected', 'Waiting'].map((status) => DropdownMenuItem<String>(
+                      value: status,
+                      child: Text(status, style: const TextStyle(fontSize: 13)),
+                    )).toList(),
+                    onChanged: (value) {
+                      setState(() => _selectedStatus = value);
+                      _fetchStocks();
+                    },
+                  ),
+                ),
               ),
             ),
           ],
@@ -641,16 +608,16 @@ class StockManagementScreenState extends State<StockManagementScreen> {
 
 
 
-  Widget _buildStockCard(StockItem item) {
+  Widget _buildStockCard(StockItem item, {bool isGrid = false}) {
     double percentage = item.qtyBase > 0 ? (item.qtyCurrent / item.qtyBase).clamp(0.0, 1.0) : 0.0;
     Color progressColor = percentage < 0.2 ? Colors.red : (percentage < 0.5 ? Colors.orange : Colors.green);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
+      margin: EdgeInsets.only(bottom: isGrid ? 0 : 16),
+      padding: EdgeInsets.all(isGrid ? 12 : 20),
       decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(isGrid ? 16 : 24),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.04),
@@ -662,83 +629,79 @@ class StockManagementScreenState extends State<StockManagementScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text(
+            item.productName,
+            maxLines: isGrid ? 2 : 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: isGrid ? 13 : 16,
+              color: AppColors.black,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            item.productCategory,
+            style: TextStyle(
+              fontSize: isGrid ? 10 : 12,
+              color: AppColors.black.withOpacity(0.4),
+            ),
+          ),
+          const Spacer(),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(
-                child: Text(
-                  item.productName,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+              Text(
+                'Stok',
+                style: TextStyle(
+                  fontSize: isGrid ? 10 : 12,
+                  color: AppColors.black.withOpacity(0.6),
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.add_circle_outline, color: AppColors.black),
-                onPressed: () {
-                  // TODO: Implement Restock dialog
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Stok saat ini: ${item.qtyCurrent}',
-                    style: TextStyle(
-                      color: AppColors.black.withOpacity(0.6),
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  _buildStatusBadge(item.confirmed),
-                ],
-              ),
               Text(
-                '${(percentage * 100).toInt()}%',
+                '${item.qtyCurrent}/${item.qtyBase}',
                 style: TextStyle(
-                  color: progressColor,
+                  fontSize: isGrid ? 11 : 14,
                   fontWeight: FontWeight.bold,
+                  color: AppColors.black,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 8),
           ClipRRect(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
               value: percentage,
-              backgroundColor: AppColors.grey,
-              color: progressColor,
-              minHeight: 8,
+              backgroundColor: AppColors.grey.withOpacity(0.3),
+              valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+              minHeight: isGrid ? 6 : 8,
             ),
           ),
+          if (item.status.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            _buildStatusBadge(item.status),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildStatusBadge(int status) {
+  Widget _buildStatusBadge(String status) {
     Color color;
-    String label;
-    switch (status) {
-      case 2:
-        color = Colors.green;
-        label = 'Dikonfirmasi';
-        break;
-      case 1:
-        color = Colors.blue;
-        label = 'Dalam Proses';
-        break;
-      default:
-        color = Colors.orange;
-        label = 'Pending';
+    String label = status;
+    
+    if (status.toUpperCase().contains('WAITING')) {
+      color = Colors.orange;
+      label = 'Pending';
+    } else if (status.toUpperCase().contains('REJECTED')) {
+      color = Colors.red;
+      label = 'Ditolak';
+    } else if (status.toUpperCase().contains('CONFIRMED')) {
+      color = Colors.green;
+      label = 'Dikonfirmasi';
+    } else {
+      color = Colors.blue;
     }
 
     return Container(
@@ -749,7 +712,7 @@ class StockManagementScreenState extends State<StockManagementScreen> {
       ),
       child: Text(
         label,
-        style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
+        style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.bold),
       ),
     );
   }

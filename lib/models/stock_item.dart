@@ -7,6 +7,7 @@ class StockItem {
   final int confirmed;
   final String createdAt;
   final String riderName;
+  final String status;
 
   StockItem({
     required this.productId,
@@ -17,6 +18,7 @@ class StockItem {
     required this.confirmed,
     this.createdAt = '',
     this.riderName = '',
+    this.status = '',
   });
 
   factory StockItem.fromJson(Map<String, dynamic> json, {String? createdAt, String? riderName}) {
@@ -29,6 +31,7 @@ class StockItem {
       confirmed: _toInt(json['confirmed']),
       createdAt: createdAt ?? json['created_at']?.toString() ?? '',
       riderName: riderName ?? json['rider_name']?.toString() ?? '',
+      status: json['status']?.toString() ?? '',
     );
   }
 
