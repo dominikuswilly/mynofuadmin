@@ -16,9 +16,7 @@ class StockManagementScreen extends StatefulWidget {
 }
 
 class StockManagementScreenState extends State<StockManagementScreen> {
-  List<Category> _categories = [];
-  bool _isLoadingCategories = true;
-  String _selectedCategoryId = 'all';
+
 
   List<StockItem> _stocksList = [];
   bool _isLoadingStocks = true;
@@ -32,7 +30,6 @@ class StockManagementScreenState extends State<StockManagementScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchCategories();
     _fetchRidersForFilter();
     _fetchStocks();
   }
@@ -62,7 +59,7 @@ class StockManagementScreenState extends State<StockManagementScreen> {
       
       String url = '/private/admin/transaction/stock?date_start=$startDateStr&date_end=$endDateStr';
       if (_selectedFilterRider != null) {
-        url += '&rider_id=${_selectedFilterRider!.id}&rider_name=${Uri.encodeComponent(_selectedFilterRider!.name)}';
+        url += '&rider_id=${_selectedFilterRider!.id}';
       }
 
       final response = await ApiService.get(url);
@@ -70,13 +67,21 @@ class StockManagementScreenState extends State<StockManagementScreen> {
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = jsonDecode(response.body);
         if (data['status'] == 'success' && data['data'] != null) {
-          final List<dynamic> ridersData = data['data'];
+          final dynamic rawData = data['data'];
           List<StockItem> allStocks = [];
           
-          for (var riderData in ridersData) {
-            if (riderData['stock_list'] != null) {
-              final List<dynamic> stockListJson = riderData['stock_list'];
-              allStocks.addAll(stockListJson.map((json) => StockItem.fromJson(json)).toList());
+          if (rawData is List) {
+            for (var item in rawData) {
+              if (item is Map<String, dynamic>) {
+                // Check if it's grouped by rider (has stock_list) or flat
+                if (item.containsKey('stock_list') && item['stock_list'] is List) {
+                  final List<dynamic> stockListJson = item['stock_list'];
+                  allStocks.addAll(stockListJson.map((json) => StockItem.fromJson(json)).toList());
+                } else if (item.containsKey('product_id')) {
+                  // It's a flat list of stock items
+                  allStocks.add(StockItem.fromJson(item));
+                }
+              }
             }
           }
 
@@ -91,6 +96,7 @@ class StockManagementScreenState extends State<StockManagementScreen> {
           });
         }
       } else {
+        debugPrint('Failed to fetch stocks: ${response.statusCode} - ${response.body}');
         setState(() {
           _isLoadingStocks = false;
         });
@@ -103,31 +109,7 @@ class StockManagementScreenState extends State<StockManagementScreen> {
     }
   }
 
-  Future<void> _fetchCategories() async {
-    setState(() {
-      _isLoadingCategories = true;
-    });
 
-    try {
-      final response = await ApiService.get('/private/inventory/categories');
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> data = jsonDecode(response.body);
-        if (data['status'] == 'success') {
-          final List<dynamic> categoriesJson = data['data'];
-          setState(() {
-            _categories = categoriesJson.map((json) => Category.fromJson(json)).toList();
-            _isLoadingCategories = false;
-          });
-        }
-      }
-    } catch (e) {
-      debugPrint('Error fetching categories: $e');
-      setState(() {
-        _isLoadingCategories = false;
-      });
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -157,7 +139,6 @@ class StockManagementScreenState extends State<StockManagementScreen> {
         Expanded(
           child: RefreshIndicator(
             onRefresh: () async {
-              await _fetchCategories();
               await _fetchStocks();
             },
             child: _isLoadingStocks
@@ -494,34 +475,7 @@ class StockManagementScreenState extends State<StockManagementScreen> {
     );
   }
 
-  Widget _buildCategoryChip(String label, String id) {
-    final bool isSelected = _selectedCategoryId == id;
-    return Container(
-      margin: const EdgeInsets.only(right: 8),
-      child: FilterChip(
-        label: Text(label),
-        selected: isSelected,
-        onSelected: (bool selected) {
-          setState(() {
-            _selectedCategoryId = id;
-          });
-          // In a real app, we'd filter stocks by category here
-        },
-        backgroundColor: AppColors.grey,
-        selectedColor: AppColors.primary,
-        labelStyle: TextStyle(
-          fontSize: 12,
-          color: isSelected ? AppColors.black : AppColors.black.withOpacity(0.6),
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide.none,
-        ),
-        showCheckmark: false,
-      ),
-    );
-  }
+
 
   Widget _buildStockCard(StockItem item) {
     double percentage = item.qtyBase > 0 ? (item.qtyCurrent / item.qtyBase).clamp(0.0, 1.0) : 0.0;
@@ -671,7 +625,7 @@ class _InitiateStockModalState extends State<_InitiateStockModal> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
-      final riderResponse = await ApiService.get('/private/admin/rider');
+      final riderResponse = await ApiService.get('/private/admin/rider/init-status');
       final productResponse = await ApiService.get('/private/admin/product');
 
       if (riderResponse.statusCode == 200 && productResponse.statusCode == 200) {
@@ -819,32 +773,72 @@ class _InitiateStockModalState extends State<_InitiateStockModal> {
       itemBuilder: (context, index) {
         final rider = _riders[index];
         final isSelected = _selectedRider?.id == rider.id;
+        final canSelect = rider.canInit;
+
         return GestureDetector(
-          onTap: () => setState(() => _selectedRider = rider),
+          onTap: canSelect ? () => setState(() => _selectedRider = rider) : null,
           child: Container(
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: isSelected ? AppColors.primary.withOpacity(0.1) : AppColors.grey.withOpacity(0.5),
+              color: isSelected 
+                  ? AppColors.primary.withOpacity(0.1) 
+                  : canSelect 
+                      ? AppColors.grey.withOpacity(0.5)
+                      : AppColors.grey.withOpacity(0.2),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: isSelected ? AppColors.primary : Colors.transparent, width: 2),
+              border: Border.all(
+                color: isSelected ? AppColors.primary : Colors.transparent, 
+                width: 2,
+              ),
             ),
             child: Row(
               children: [
                 CircleAvatar(
-                  backgroundColor: AppColors.primary,
-                  child: Text(rider.name[0], style: const TextStyle(color: AppColors.black, fontWeight: FontWeight.bold)),
+                  backgroundColor: canSelect ? AppColors.primary : Colors.grey,
+                  child: Text(
+                    rider.name[0], 
+                    style: TextStyle(
+                      color: canSelect ? AppColors.black : Colors.white, 
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(rider.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      Text('@${rider.username}', style: TextStyle(fontSize: 12, color: Colors.black.withOpacity(0.5))),
+                      Text(
+                        rider.name, 
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold, 
+                          fontSize: 16,
+                          color: canSelect ? Colors.black : Colors.black.withOpacity(0.3),
+                        ),
+                      ),
+                      Text(
+                        '@${rider.username}', 
+                        style: TextStyle(
+                          fontSize: 12, 
+                          color: Colors.black.withOpacity(canSelect ? 0.5 : 0.2),
+                        ),
+                      ),
                     ],
                   ),
                 ),
+                if (!canSelect)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Text(
+                      'Sudah Inisialisasi',
+                      style: TextStyle(color: Colors.orange, fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
+                  ),
                 if (isSelected) const Icon(Icons.check_circle_rounded, color: AppColors.primary),
               ],
             ),

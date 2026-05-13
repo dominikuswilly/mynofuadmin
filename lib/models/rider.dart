@@ -5,6 +5,7 @@ class Rider {
   final String createdAt;
   final String whatsappNumber;
   final bool isActive;
+  final bool canInit;
 
   Rider({
     required this.id,
@@ -13,6 +14,7 @@ class Rider {
     required this.createdAt,
     required this.whatsappNumber,
     required this.isActive,
+    required this.canInit,
   });
 
   factory Rider.fromJson(Map<String, dynamic> json) {
@@ -23,6 +25,7 @@ class Rider {
       createdAt: json['created_at'] as String,
       whatsappNumber: json['whatsapp_number'] as String,
       isActive: json['active'] == 1,
+      canInit: json['can_init'] ?? false,
     );
   }
 
