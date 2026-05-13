@@ -198,7 +198,7 @@ class StockManagementScreenState extends State<StockManagementScreen> {
                 : _stocksList.isEmpty
                     ? const Center(child: Text('Tidak ada data stok'))
                     : ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
                         itemCount: listItems.length,
                         itemBuilder: (context, index) {
                           final entry = listItems[index];
@@ -206,36 +206,58 @@ class StockManagementScreenState extends State<StockManagementScreen> {
                           if (entry is Map && entry['type'] == 'date') {
                             final date = entry['value'] as String;
                             final isExpanded = _expandedDates.contains(date);
-                            return InkWell(
-                              onTap: () => setState(() {
-                                if (isExpanded) _expandedDates.remove(date);
-                                else _expandedDates.add(date);
-                              }),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 4),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      isExpanded ? Icons.keyboard_arrow_down_rounded : Icons.keyboard_arrow_right_rounded,
-                                      color: AppColors.black,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    const Icon(Icons.calendar_today_rounded, size: 16, color: AppColors.black),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      date,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 18,
-                                        color: AppColors.black,
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: InkWell(
+                                onTap: () => setState(() {
+                                  if (isExpanded) _expandedDates.remove(date);
+                                  else _expandedDates.add(date);
+                                }),
+                                borderRadius: BorderRadius.circular(20),
+                                child: Container(
+                                  padding: const EdgeInsets.all(20),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.black,
+                                    borderRadius: BorderRadius.circular(20),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.1),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 4),
                                       ),
-                                    ),
-                                    const Spacer(),
-                                    Text(
-                                      '${nestedGroups[date]!.length} Rider',
-                                      style: TextStyle(fontSize: 12, color: Colors.black.withOpacity(0.4)),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.calendar_today_rounded, size: 20, color: AppColors.primary),
+                                      const SizedBox(width: 16),
+                                      Text(
+                                        date,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 18,
+                                          color: AppColors.primary,
+                                        ),
+                                      ),
+                                      const Spacer(),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.primary.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Text(
+                                          '${nestedGroups[date]!.length} Rider',
+                                          style: const TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Icon(
+                                        isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                                        color: AppColors.primary,
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             );
@@ -247,42 +269,46 @@ class StockManagementScreenState extends State<StockManagementScreen> {
                             final riderKey = "$date|$rider";
                             final isExpanded = _expandedRiders.contains(riderKey);
                             
-                            return InkWell(
-                              onTap: () => setState(() {
-                                if (isExpanded) _expandedRiders.remove(riderKey);
-                                else _expandedRiders.add(riderKey);
-                              }),
-                              child: Container(
-                                margin: const EdgeInsets.only(left: 24, bottom: 8, top: 4),
-                                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                                decoration: BoxDecoration(
-                                  color: AppColors.grey.withOpacity(0.3),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      isExpanded ? Icons.keyboard_arrow_down_rounded : Icons.keyboard_arrow_right_rounded,
-                                      size: 20,
-                                      color: AppColors.black.withOpacity(0.6),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    const Icon(Icons.person_rounded, size: 16, color: AppColors.black),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      rider,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                        color: AppColors.black,
+                            return Padding(
+                              padding: const EdgeInsets.only(left: 12, bottom: 8),
+                              child: InkWell(
+                                onTap: () => setState(() {
+                                  if (isExpanded) _expandedRiders.remove(riderKey);
+                                  else _expandedRiders.add(riderKey);
+                                }),
+                                borderRadius: BorderRadius.circular(16),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.white,
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(color: AppColors.grey),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.person_rounded, size: 18, color: AppColors.black),
+                                      const SizedBox(width: 12),
+                                      Text(
+                                        rider,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 15,
+                                          color: AppColors.black,
+                                        ),
                                       ),
-                                    ),
-                                    const Spacer(),
-                                    Text(
-                                      '${nestedGroups[date]![rider]!.length} Item',
-                                      style: TextStyle(fontSize: 11, color: Colors.black.withOpacity(0.4)),
-                                    ),
-                                  ],
+                                      const Spacer(),
+                                      Text(
+                                        '${nestedGroups[date]![rider]!.length} Item',
+                                        style: TextStyle(fontSize: 12, color: Colors.black.withOpacity(0.4), fontWeight: FontWeight.w500),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Icon(
+                                        isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                                        size: 20,
+                                        color: AppColors.black.withOpacity(0.4),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             );
@@ -290,7 +316,7 @@ class StockManagementScreenState extends State<StockManagementScreen> {
                           
                           final item = entry as StockItem;
                           return Padding(
-                            padding: const EdgeInsets.only(left: 48),
+                            padding: const EdgeInsets.only(left: 24),
                             child: _buildStockCard(item),
                           );
                         },
