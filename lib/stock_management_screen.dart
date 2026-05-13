@@ -340,81 +340,79 @@ class StockManagementScreenState extends State<StockManagementScreen> {
           bottomRight: Radius.circular(32),
         ),
       ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: _buildFilterBox(
-                  label: 'Rider',
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<Rider>(
-                      isExpanded: true,
-                      value: _selectedFilterRider,
-                      hint: const Text('Semua Rider', style: TextStyle(fontSize: 14)),
-                      items: [
-                        const DropdownMenuItem<Rider>(
-                          value: null,
-                          child: Text('Semua Rider', style: TextStyle(fontSize: 14)),
-                        ),
-                        ..._ridersListForFilter.map((rider) => DropdownMenuItem<Rider>(
-                          value: rider,
-                          child: Text(rider.name, style: const TextStyle(fontSize: 14)),
-                        )),
-                      ],
-                      onChanged: (value) {
-                        setState(() => _selectedFilterRider = value);
-                        _fetchStocks();
-                      },
-                    ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            SizedBox(
+              width: 160,
+              child: _buildFilterBox(
+                label: 'Rider',
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<Rider>(
+                    isExpanded: true,
+                    value: _selectedFilterRider,
+                    hint: const Text('Semua Rider', style: TextStyle(fontSize: 13)),
+                    items: [
+                      const DropdownMenuItem<Rider>(
+                        value: null,
+                        child: Text('Semua Rider', style: TextStyle(fontSize: 13)),
+                      ),
+                      ..._ridersListForFilter.map((rider) => DropdownMenuItem<Rider>(
+                        value: rider,
+                        child: Text(rider.name, style: const TextStyle(fontSize: 13)),
+                      )),
+                    ],
+                    onChanged: (value) {
+                      setState(() => _selectedFilterRider = value);
+                      _fetchStocks();
+                    },
                   ),
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildFilterBox(
-                  label: 'Dari',
-                  onTap: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: _startDate,
-                      firstDate: DateTime(2024),
-                      lastDate: DateTime(2030),
-                    );
-                    if (picked != null) {
-                      setState(() => _startDate = picked);
-                      _fetchStocks();
-                    }
-                  },
-                  child: Text(startDateStr, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 110,
+              child: _buildFilterBox(
+                label: 'Dari',
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: _startDate,
+                    firstDate: DateTime(2024),
+                    lastDate: DateTime(2030),
+                  );
+                  if (picked != null) {
+                    setState(() => _startDate = picked);
+                    _fetchStocks();
+                  }
+                },
+                child: Text(startDateStr, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildFilterBox(
-                  label: 'Sampai',
-                  onTap: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: _endDate,
-                      firstDate: DateTime(2024),
-                      lastDate: DateTime(2030),
-                    );
-                    if (picked != null) {
-                      setState(() => _endDate = picked);
-                      _fetchStocks();
-                    }
-                  },
-                  child: Text(endDateStr, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 110,
+              child: _buildFilterBox(
+                label: 'Sampai',
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: _endDate,
+                    firstDate: DateTime(2024),
+                    lastDate: DateTime(2030),
+                  );
+                  if (picked != null) {
+                    setState(() => _endDate = picked);
+                    _fetchStocks();
+                  }
+                },
+                child: Text(endDateStr, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
               ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
