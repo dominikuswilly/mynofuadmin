@@ -54,6 +54,8 @@ app.*.map.json
 **/android/gradlew
 **/android/gradlew.bat
 **/android/gradle/wrapper/gradle-wrapper.jar
+.kotlin/
+
 
 # iOS related
 **/ios/**/*.mode1v3
@@ -73,12 +75,22 @@ app.*.map.json
 
 # macOS related
 **/macos/Flutter/ephemeral/
+**/macos/Flutter/GeneratedPluginRegistrant.swift
+
 
 # Linux related
 **/linux/flutter/ephemeral/
+**/linux/flutter/generated_plugin_registrant.cc
+**/linux/flutter/generated_plugin_registrant.h
+**/linux/flutter/generated_plugins.cmake
+
 
 # Windows related
 **/windows/flutter/ephemeral/
+**/windows/flutter/generated_plugin_registrant.cc
+**/windows/flutter/generated_plugin_registrant.h
+**/windows/flutter/generated_plugins.cmake
+
 
 # Secrets and environment variables
 .env*
