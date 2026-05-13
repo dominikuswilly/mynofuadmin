@@ -388,7 +388,7 @@ class StockManagementScreenState extends State<StockManagementScreen> {
                     _fetchStocks();
                   }
                 },
-                child: Text(startDateStr, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                child: Text(startDateStr, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.black)),
               ),
             ),
             const SizedBox(width: 8),
@@ -408,7 +408,7 @@ class StockManagementScreenState extends State<StockManagementScreen> {
                     _fetchStocks();
                   }
                 },
-                child: Text(endDateStr, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                child: Text(endDateStr, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.black)),
               ),
             ),
           ],
