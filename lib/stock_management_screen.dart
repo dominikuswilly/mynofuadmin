@@ -291,14 +291,17 @@ class StockManagementScreenState extends State<StockManagementScreen> {
       ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
             SizedBox(
               width: 160,
               child: _buildFilterBox(
                 label: 'Rider',
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<Rider>(
+                    isDense: true,
                     isExpanded: true,
                     value: _selectedFilterRider,
                     hint: const Text('Pilih Rider', style: TextStyle(fontSize: 13)),
@@ -361,6 +364,7 @@ class StockManagementScreenState extends State<StockManagementScreen> {
                 label: 'Status',
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
+                    isDense: true,
                     isExpanded: true,
                     value: _selectedStatus ?? 'All',
                     hint: const Text('Semua Status', style: TextStyle(fontSize: 13)),
@@ -378,6 +382,7 @@ class StockManagementScreenState extends State<StockManagementScreen> {
             ),
           ],
         ),
+        ),
       ),
     );
   }
@@ -393,6 +398,7 @@ class StockManagementScreenState extends State<StockManagementScreen> {
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(label, style: TextStyle(fontSize: 10, color: Colors.black.withOpacity(0.4), fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
