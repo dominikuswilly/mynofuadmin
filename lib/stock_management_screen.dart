@@ -41,7 +41,7 @@ class StockManagementScreenState extends State<StockManagementScreen> {
 
   Future<void> _fetchRidersForFilter() async {
     try {
-      final response = await ApiService.get('/private/admin/rider');
+      final response = await ApiService.get('/private/admin/rider?active=true');
       if (response.statusCode == 200) {
         final List<dynamic> ridersJson = jsonDecode(response.body);
         setState(() {
