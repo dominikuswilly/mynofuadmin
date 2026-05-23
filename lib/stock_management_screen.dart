@@ -351,10 +351,9 @@ class StockManagementScreenState extends State<StockManagementScreen> {
       ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             SizedBox(
               width: 160,
               child: _buildFilterBox(
@@ -441,7 +440,6 @@ class StockManagementScreenState extends State<StockManagementScreen> {
               ),
             ),
           ],
-        ),
         ),
       ),
     );
@@ -745,18 +743,19 @@ class StockManagementScreenState extends State<StockManagementScreen> {
               ),
             ),
             if (!isSessionClosed)
-              ElevatedButton(
-                onPressed: _showCloseSessionModal,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.black,
-                  foregroundColor: AppColors.primary,
-                  elevation: 0,
+              InkWell(
+                onTap: _showCloseSessionModal,
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-                child: const Text(
-                  'Tutup Sesi',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  decoration: BoxDecoration(
+                    color: AppColors.black,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Text(
+                    'Tutup Sesi',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
+                  ),
                 ),
               ),
           ],
@@ -1568,7 +1567,7 @@ class _CloseSessionModalState extends State<_CloseSessionModal> {
                         const SizedBox(height: 4),
                         Text(
                           'Rp ${commissionAmt.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}',
-                          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.black, color: AppColors.black),
+                          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.black),
                         ),
                       ],
                     ),
