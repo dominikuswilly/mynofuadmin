@@ -8,6 +8,9 @@ class StockItem {
   final String createdAt;
   final String riderName;
   final String status;
+  final int closed;
+  final String closedAt;
+  final String closedBy;
 
   StockItem({
     required this.productId,
@@ -19,6 +22,9 @@ class StockItem {
     this.createdAt = '',
     this.riderName = '',
     this.status = '',
+    this.closed = 0,
+    this.closedAt = '',
+    this.closedBy = '',
   });
 
   factory StockItem.fromJson(Map<String, dynamic> json, {String? createdAt, String? riderName}) {
@@ -32,6 +38,9 @@ class StockItem {
       createdAt: createdAt ?? json['created_at']?.toString() ?? '',
       riderName: riderName ?? json['rider_name']?.toString() ?? '',
       status: json['status']?.toString() ?? '',
+      closed: _toInt(json['closed']),
+      closedAt: json['closed_at']?.toString() ?? '',
+      closedBy: json['closed_by']?.toString() ?? '',
     );
   }
 

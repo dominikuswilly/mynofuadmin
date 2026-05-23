@@ -21,6 +21,12 @@ class StockManagementScreenState extends State<StockManagementScreen> {
   List<StockItem> _stocksList = [];
   bool _isLoadingStocks = true;
 
+  List<dynamic> _restocksList = [];
+  bool _isLoadingRestocks = true;
+
+  List<dynamic> _damageReports = [];
+  bool _isLoadingDamage = true;
+
   // Filter state
   DateTime _startDate = DateTime.now();
   DateTime _endDate = DateTime.now();
@@ -37,6 +43,58 @@ class StockManagementScreenState extends State<StockManagementScreen> {
     super.initState();
     _fetchRidersForFilter();
     _fetchStocks();
+    _fetchRestockRequests();
+    _fetchDamageReports();
+  }
+
+  Future<void> _fetchRestockRequests() async {
+    setState(() {
+      _isLoadingRestocks = true;
+    });
+    try {
+      final response = await ApiService.get('/private/admin/inventory/restock?status=pending');
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        if (data['status'] == 'success' && data['data'] != null) {
+          setState(() {
+            _restocksList = data['data'] as List<dynamic>;
+            _isLoadingRestocks = false;
+          });
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching restocks: $e');
+    }
+    setState(() {
+      _restocksList = [];
+      _isLoadingRestocks = false;
+    });
+  }
+
+  Future<void> _fetchDamageReports() async {
+    setState(() {
+      _isLoadingDamage = true;
+    });
+    try {
+      final response = await ApiService.get('/private/admin/transaction/waste');
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        if (data['status'] == 'success' && data['data'] != null) {
+          setState(() {
+            _damageReports = data['data'] as List<dynamic>;
+            _isLoadingDamage = false;
+          });
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching damage reports: $e');
+    }
+    setState(() {
+      _damageReports = [];
+      _isLoadingDamage = false;
+    });
   }
 
   Future<void> _fetchRidersForFilter() async {
@@ -174,6 +232,8 @@ class StockManagementScreenState extends State<StockManagementScreen> {
     return Column(
       children: [
         _buildInventoryFilters(),
+        if (_selectedFilterRider != null && _stocksList.isNotEmpty)
+          _buildSessionClosureBar(),
         Expanded(
           child: RefreshIndicator(
             onRefresh: () async {
@@ -409,162 +469,328 @@ class StockManagementScreenState extends State<StockManagementScreen> {
     );
   }
 
-  Widget _buildRequestsTab() {
-    // Mock data for requests
-    final requests = [
-      {'rider': 'Budi', 'product': 'Kopi Gula Aren', 'qty': 20, 'status': 'Pending', 'date': '2026-05-06 09:30'},
-      {'rider': 'Siti', 'product': 'Cokelat Klasik', 'qty': 15, 'status': 'Disetujui', 'date': '2026-05-06 08:45'},
-    ];
-
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 100),
-      itemCount: requests.length,
-      itemBuilder: (context, index) {
-        final req = requests[index];
-        return Container(
-          margin: const EdgeInsets.only(bottom: 16),
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    req['rider'] as String,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: (req['status'] == 'Pending' ? Colors.orange : Colors.green).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      req['status'] as String,
-                      style: TextStyle(
-                        color: req['status'] == 'Pending' ? Colors.orange : Colors.green,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Permintaan: ${req['product']} (${req['qty']} unit)',
-                style: const TextStyle(fontSize: 14),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    req['date'] as String,
-                    style: TextStyle(fontSize: 12, color: Colors.black.withOpacity(0.4)),
-                  ),
-                  if (req['status'] == 'Pending')
-                    Row(
-                      children: [
-                        TextButton(
-                          onPressed: () {},
-                          child: const Text('Tolak', style: TextStyle(color: Colors.red)),
-                        ),
-                        const SizedBox(width: 8),
-                        ElevatedButton(
-                          onPressed: () {},
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.black,
-                            foregroundColor: AppColors.primary,
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          child: const Text('Setujui'),
-                        ),
-                      ],
-                    ),
-                ],
-              ),
-            ],
-          ),
+  Future<void> _resolveRestock(String requestId, bool approve) async {
+    try {
+      final endpoint = '/private/admin/inventory/restock/$requestId/${approve ? 'approve' : 'reject'}';
+      final response = await ApiService.post(endpoint, {});
+      if (response.statusCode == 200) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(approve ? 'Permintaan restock disetujui' : 'Permintaan restock ditolak'),
+              backgroundColor: approve ? Colors.green : Colors.orange,
+            ),
+          );
+          _fetchRestockRequests();
+          _fetchStocks();
+        }
+      } else {
+        throw 'Failed with code ${response.statusCode}';
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal: $e'), backgroundColor: Colors.redAccent),
         );
+      }
+    }
+  }
+
+  Widget _buildRequestsTab() {
+    return RefreshIndicator(
+      onRefresh: () async {
+        await _fetchRestockRequests();
       },
+      child: _isLoadingRestocks
+          ? const Center(child: CircularProgressIndicator())
+          : _restocksList.isEmpty
+              ? const Center(child: Text('Tidak ada permintaan restock aktif'))
+              : ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 100),
+                  itemCount: _restocksList.length,
+                  itemBuilder: (context, index) {
+                    final req = _restocksList[index];
+                    final String reqId = req['id']?.toString() ?? '';
+                    final String riderName = req['rider_name']?.toString() ?? 'Rider';
+                    final String status = req['status']?.toString() ?? 'pending';
+                    final String date = req['created_at']?.toString() ?? '';
+                    final dynamic itemsRaw = req['items'];
+                    
+                    String itemsText = '';
+                    if (itemsRaw is List) {
+                      itemsText = itemsRaw.map((item) {
+                        final String pNm = item['product_nm']?.toString() ?? 'Produk';
+                        final int qty = _toInt(item['i_qty'] ?? item['quantity']);
+                        return '$pNm ($qty unit)';
+                      }).join(', ');
+                    }
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: AppColors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.04),
+                            blurRadius: 20,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                riderName,
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: (status == 'pending' ? Colors.orange : Colors.green).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  status == 'pending' ? 'Pending' : status,
+                                  style: TextStyle(
+                                    color: status == 'pending' ? Colors.orange : Colors.green,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Permintaan: $itemsText',
+                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                date,
+                                style: TextStyle(fontSize: 12, color: Colors.black.withOpacity(0.4)),
+                              ),
+                              if (status == 'pending')
+                                Row(
+                                  children: [
+                                    TextButton(
+                                      onPressed: () => _resolveRestock(reqId, false),
+                                      child: const Text('Tolak', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    ElevatedButton(
+                                      onPressed: () => _resolveRestock(reqId, true),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppColors.black,
+                                        foregroundColor: AppColors.primary,
+                                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      ),
+                                      child: const Text('Setujui'),
+                                    ),
+                                  ],
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
     );
   }
 
   Widget _buildDamageTab() {
-    // Mock data for damage reports
-    final reports = [
-      {'rider': 'Kevin', 'product': 'Kopi Susu', 'qty': 2, 'note': 'Bocor saat pengiriman', 'date': '2026-05-06 10:15'},
-      {'rider': 'Cindy', 'product': 'Snack Roti', 'qty': 1, 'note': 'Kadaluarsa', 'date': '2026-05-05 16:20'},
-    ];
+    return RefreshIndicator(
+      onRefresh: () async {
+        await _fetchDamageReports();
+      },
+      child: _isLoadingDamage
+          ? const Center(child: CircularProgressIndicator())
+          : _damageReports.isEmpty
+              ? const Center(child: Text('Tidak ada laporan kerusakan'))
+              : ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 100),
+                  itemCount: _damageReports.length,
+                  itemBuilder: (context, index) {
+                    final report = _damageReports[index];
+                    final String rider = report['rider_name']?.toString() ?? 'Rider';
+                    final String product = report['product_name']?.toString() ?? 'Produk';
+                    final int qty = _toInt(report['quantity']);
+                    final String note = report['reason']?.toString() ?? 'Tanpa alasan';
+                    final String date = report['created_at']?.toString() ?? '';
 
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 100),
-      itemCount: reports.length,
-      itemBuilder: (context, index) {
-        final report = reports[index];
-        return Container(
-          margin: const EdgeInsets.only(bottom: 16),
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
-              ),
-            ],
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: AppColors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.04),
+                            blurRadius: 20,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                rider,
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                              ),
+                              Text(
+                                date,
+                                style: TextStyle(fontSize: 12, color: Colors.black.withOpacity(0.4)),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          RichText(
+                            text: TextSpan(
+                              style: const TextStyle(color: Colors.black, fontSize: 14),
+                              children: [
+                                const TextSpan(text: 'Produk Rusak: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                                TextSpan(text: '$product ($qty unit)'),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Alasan: $note',
+                            style: TextStyle(fontSize: 13, color: Colors.black.withOpacity(0.6), fontStyle: FontStyle.italic),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+    );
+  }
+
+  static int _toInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
+  }
+
+  Widget _buildSessionClosureBar() {
+    bool isSessionClosed = _stocksList.any((item) => item.closed == 1);
+    String closedBy = '';
+    String closedAt = '';
+    if (isSessionClosed) {
+      final closedItem = _stocksList.firstWhere((item) => item.closed == 1);
+      closedBy = closedItem.closedBy;
+      closedAt = closedItem.closedAt;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSessionClosed ? Colors.green.withOpacity(0.1) : AppColors.black.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSessionClosed ? Colors.green.withOpacity(0.3) : AppColors.black.withOpacity(0.1),
+            width: 1.5,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isSessionClosed ? Icons.check_circle_rounded : Icons.pending_actions_rounded,
+              color: isSessionClosed ? Colors.green : AppColors.black,
+              size: 24,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    report['rider'] as String,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    isSessionClosed ? 'Sesi Ditutup' : 'Sesi Aktif',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: isSessionClosed ? Colors.green : AppColors.black,
+                    ),
                   ),
+                  const SizedBox(height: 2),
                   Text(
-                    report['date'] as String,
-                    style: TextStyle(fontSize: 12, color: Colors.black.withOpacity(0.4)),
+                    isSessionClosed
+                        ? 'Oleh $closedBy pada $closedAt'
+                        : 'Sesi operasional harian rider sedang berjalan.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.black.withOpacity(0.6),
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-              RichText(
-                text: TextSpan(
-                  style: const TextStyle(color: Colors.black, fontSize: 14),
-                  children: [
-                    const TextSpan(text: 'Produk Rusak: ', style: TextStyle(fontWeight: FontWeight.bold)),
-                    TextSpan(text: '${report['product']} (${report['qty']} unit)'),
-                  ],
+            ),
+            if (!isSessionClosed)
+              ElevatedButton(
+                onPressed: _showCloseSessionModal,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.black,
+                  foregroundColor: AppColors.primary,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                child: const Text(
+                  'Tutup Sesi',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Catatan: ${report['note']}',
-                style: TextStyle(fontSize: 13, color: Colors.black.withOpacity(0.6), fontStyle: FontStyle.italic),
-              ),
-            ],
-          ),
-        );
-      },
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showCloseSessionModal() {
+    if (_selectedFilterRider == null) return;
+    
+    // Find today's items of selected rider
+    List<StockItem> todayItems = _stocksList.where((item) => 
+      item.riderName == _selectedFilterRider!.name
+    ).toList();
+
+    if (todayItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tidak ada item stok hari ini untuk rider ini')),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _CloseSessionModal(
+        rider: _selectedFilterRider!,
+        items: todayItems,
+        onComplete: () {
+          _fetchStocks();
+        },
+      ),
     );
   }
 
@@ -1246,6 +1472,305 @@ class _QtyButton extends StatelessWidget {
       constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
       icon: Icon(icon, size: 18, color: AppColors.black),
       onPressed: onPressed,
+    );
+  }
+}
+
+class _CloseSessionModal extends StatefulWidget {
+  final Rider rider;
+  final List<StockItem> items;
+  final VoidCallback onComplete;
+
+  const _CloseSessionModal({
+    required this.rider,
+    required this.items,
+    required this.onComplete,
+  });
+
+  @override
+  State<_CloseSessionModal> createState() => _CloseSessionModalState();
+}
+
+class _CloseSessionModalState extends State<_CloseSessionModal> {
+  bool _isLoading = false;
+  final Map<String, TextEditingController> _controllers = {};
+
+  @override
+  void initState() {
+    super.initState();
+    for (var item in widget.items) {
+      _controllers[item.productId] = TextEditingController(text: item.qtyCurrent.toString());
+    }
+  }
+
+  @override
+  void dispose() {
+    for (var controller in _controllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    setState(() => _isLoading = true);
+    try {
+      final List<Map<String, dynamic>> actualStocks = [];
+      for (var item in widget.items) {
+        final qty = int.tryParse(_controllers[item.productId]!.text) ?? 0;
+        actualStocks.add({
+          'product_id': item.productId,
+          'physical_qty': qty,
+        });
+      }
+
+      final response = await ApiService.post('/private/admin/transaction/close-session', {
+        'rider_id': widget.rider.id,
+        'actual_stocks': actualStocks,
+      });
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        final double commissionAmt = (data['commission_amt'] as num?)?.toDouble() ?? 0.0;
+
+        if (mounted) {
+          widget.onComplete();
+          Navigator.pop(context);
+          
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              backgroundColor: AppColors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              title: const Row(
+                children: [
+                  Icon(Icons.check_circle_rounded, color: Colors.green, size: 28),
+                  SizedBox(width: 12),
+                  Text('Sesi Ditutup!', style: TextStyle(fontWeight: FontWeight.bold)),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Sesi harian rider telah berhasil ditutup dan dibukukan harian.'),
+                  const SizedBox(height: 16),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('KOMISI RIDER HARI INI', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black54)),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Rp ${commissionAmt.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}',
+                          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.black, color: AppColors.black),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: TextButton.styleFrom(foregroundColor: AppColors.black),
+                  child: const Text('OK', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          );
+        }
+      } else {
+        throw jsonDecode(response.body)['error'] ?? 'Gagal menutup sesi';
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal: $e'), backgroundColor: Colors.redAccent),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.85,
+          ),
+          decoration: const BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildHeader(),
+              Expanded(
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _buildStocksEntry(),
+              ),
+              _buildFooter(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Tutup Sesi Harian',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Rider: ${widget.rider.name}',
+                  style: TextStyle(fontSize: 13, color: Colors.black.withOpacity(0.5)),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.close_rounded),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStocksEntry() {
+    return ListView.builder(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      itemCount: widget.items.length,
+      itemBuilder: (context, index) {
+        final item = widget.items[index];
+        final controller = _controllers[item.productId]!;
+
+        void updateQty(int delta) {
+          int current = int.tryParse(controller.text) ?? 0;
+          int next = current + delta;
+          if (next < 0) next = 0;
+          if (next > 999) next = 999;
+          controller.text = next.toString();
+        }
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppColors.grey),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.productName,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Sistem: ${item.qtyCurrent}/${item.qtyBase} unit',
+                      style: TextStyle(fontSize: 12, color: Colors.black.withOpacity(0.5), fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                decoration: BoxDecoration(
+                  color: AppColors.grey.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      icon: const Icon(Icons.remove_rounded, size: 18, color: AppColors.black),
+                      onPressed: () => updateQty(-1),
+                    ),
+                    SizedBox(
+                      width: 40,
+                      child: TextField(
+                        controller: controller,
+                        keyboardType: TextInputType.number,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(3),
+                        ],
+                        decoration: const InputDecoration(
+                          isDense: true,
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      icon: const Icon(Icons.add_rounded, size: 18, color: AppColors.black),
+                      onPressed: () => updateQty(1),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildFooter() {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          onPressed: _isLoading ? null : _submit,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.black,
+            padding: const EdgeInsets.symmetric(vertical: 18),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          ),
+          child: const Text(
+            'Konfirmasi & Tutup Sesi',
+            style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+        ),
+      ),
     );
   }
 }
